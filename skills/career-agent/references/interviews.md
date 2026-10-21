@@ -1,0 +1,46 @@
+# Interview preparation and referral research
+
+Use [the interaction contract](interaction.md) for every intake choice, factual clarification or preference: native questionnaires are required when applicable in the current host/mode; keep conclusions in chat and avoid duplicate prose questions.
+Start from the available invitation, readable role description and profile evidence for the chosen opportunity. Do not require every earlier phase or a complete application packet. Use an existing packet when available. Conversation, practice and intake follow the user's language; interview/answer language is a separate role-specific choice. Preparation can begin from pasted/attached readable sources without browsing; a URL alone is not content. Label live status unverified and still provide useful provisional preparation. New company or people research requires explicit start authorization and the shared pause check before every lookup.
+
+## Evidence-linked dossier
+
+Assemble product, business model, customer/user context, market constraints, team structure, engineering practices and current role requirements. Deep-read relevant company engineering/product blog posts, public talks, repositories and employee-authored technical material using [optional rdrr-first extraction and permitted fallbacks](research-tools.md). Prefer primary material and relevant recent evidence; record source URL, author when public, publication date, access date and scope. An employee's article does not automatically describe current company policy. Separate verified facts, inference and unknowns; inference must cite its supporting facts and remain visibly labeled. Do not claim exhaustive knowledge or insider access.
+
+Store dossier claims separately from candidate facts. Link them to the exact opportunity, sources and classification. Date every claim. If access is blocked or the host lacks browsing, use supplied public material and state which parts remain unverified. Never turn a synthetic practice example into company evidence.
+
+## Candidate preparation
+
+Identify pressure points likely to be challenged: short tenure, gaps, level changes, metric attribution, adjacent stack, and side projects versus commercial experience. Build positive truthful explanations using confirmed facts and motivations the user actually supplies. Do not invent why they left, hide dates, exaggerate leadership or attribute a team's result solely to the applicant. Keep sensitive explanations private until the user chooses disclosure. Offer two or three evidence-based phrasing choices and ask only for missing facts; retain previously answered or confidential dispositions.
+
+Generate likely question categories from observed role requirements and company context. These are preparation hypotheses, not claimed company questions. Link candidate-specific answer outlines to confirmed fact IDs and use a structure such as context, personal action, supported result and learning. For unsupported pieces, present a ready-made choice with explicit blanks or a focused question. Never fill those blanks with invented achievements or metrics.
+
+Prepare questions for the employer about expectations, team, decision-making, role scope, success criteria, technical/product tradeoffs, working conditions and material risks. Prioritize unresolved essential constraints and items not already answered publicly. Do not reveal a private salary floor while asking about compensation structure.
+
+## Cases and rehearsal
+
+Create realistic technical, product and company-context exercises tied to public evidence. Label cases `hypothetical` unless a cited public source documents the exercise. Publicly documented examples remain historical examples, not a promise of what an interviewer will ask. Use publicly accessible candidate reports, interview recollections, question banks and material described by its source as leaked when relevant. Attribute source, date, role/stage and reliability; distinguish reported past questions from inferred practice. Do not claim independent verification, privileged access or guaranteed recurrence without evidence. Do not seek unauthorized access or expose unnecessary personal data.
+
+Mock-interview mode asks one question at a time in the chosen interview language, waits for the answer, then gives focused feedback on truthfulness, clarity, reasoning and personal contribution. Ask follow-ups without inventing facts. Offer a revised answer outline and a retry. Keep practice artifacts separate from confirmed facts and actual interview events. Retain question IDs, answer summaries only as needed, feedback, retry/completion state and next steps so export/import preserves rehearsal progress. Practice never confirms a new career fact automatically.
+
+Create a concise day-of briefing: verified logistics supplied by the user, role/product summary, strongest supported stories, pressure-point responses, prioritized employer questions, relevant cases and remaining unknowns. Do not guess interview time, people or format. No calendar invitation or message is sent.
+
+## Referral prospects and drafts
+
+Only when user-started research includes people: inspect publicly accessible LinkedIn employee profiles and other authorized professional sources. Verify current company, role, relevance and verification date; public alternatives include engineering blogs, speaker biographies, maintainer profiles and company team pages. If LinkedIn is unavailable, disclose that limitation and use accessible alternatives. Never bulk scrape, bypass access controls or invent contact details.
+
+Store a referral prospect separately from company facts, applications and contact events. Include public name, profile/source IDs, company/opportunity ID, observed role, current-affiliation evidence/date, relevance, acquaintance/cold/unknown relationship, and user-confirmed shared connection where one exists. A relevant employee is not automatically willing or able to refer. An unknown affiliation remains unknown and requires verification before addressing them as a current employee.
+
+Draft a short respectful request with an actual professional reason (for example a cited public technical article and a truthful connection to the applicant's work), exact role, brief supported background, and an easy way to decline. Do not invent familiarity, endorsement, mutual contacts or an email address. Offer an informational question instead of demanding a referral when appropriate. Store draft/version and contact status separately; a draft is not contact. Sending connection invitations, messages, emails or agreeing to terms requires distinct explicit authorization and supported tools. This initial project only prepares drafts and records user-reported external contact events.
+
+Use [context enrichment](context-enrichment.md) only within active opt-in. Growth areas from other chats/memory belong solely in private preparation, never externally shared answers or documents; practice truthful responses without publishing private diagnostic notes.
+
+## Calendar-aware planning
+
+Offer optional planning only when relevant; the native form collects selected calendars and read-only planning scope, reusing confirmed timezone/work hours. An authenticated source must actually be available. Use minimum necessary availability, not private event descriptions. Without a connector, accept user-provided availability; without opt-in, proceed without reading calendars.
+
+Track availability as unknown, fresh or stale, with source/calendar scope, checked_at and covered interval. Propose slots with explicit timezone and freshness. Check conflicts and workload within user-chosen work hours and load limits; ask for those limits rather than inventing a preferred interview count or threshold. Include suggested preparation, travel when relevant and recovery buffers in the plan. A suggested buffer is not a calendar reservation. Recheck stale availability before a scheduling decision. The user's free calendar does not establish other attendees' availability, and recruiter-facing replies contain only approved slots, never private busy-event details.
+
+Checking on invocation, resume or requested refresh is the default. Continuous monitoring requires an actual supported mechanism and explicit user request; explain when it is unavailable. Preparation reminders/notifications need a real exposed scheduler, explicit chosen timing/timezone/destination, required connector checks, and successful returned IDs stored with scope and next check. Do not report a failed or merely drafted reminder as active. Creating holds or invitations, rescheduling, notifying recruiters and accepting meetings are separate authorized actions; read-only availability is not permission for them. This foundation has no built-in calendar client or scheduler.
+
+Preserve a resumable planning checkpoint with selected source scope, confirmed timezone/work hours/load limits or unknowns, freshness/coverage, proposed slots and buffers, unresolved conflicts and actual successful reminder IDs. Keep unrelated event titles/attendees out of career state and exports. Revoke future access on withdrawal without claiming deletion of provider calendar records.

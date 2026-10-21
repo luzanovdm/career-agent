@@ -1,0 +1,2327 @@
+{
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "control": {
+      "$ref": "#/$defs/control"
+    },
+    "profile": {
+      "$ref": "#/$defs/profile"
+    },
+    "search_config": {
+      "$ref": "#/$defs/search_config"
+    },
+    "report_preferences": {
+      "$ref": "#/$defs/report_preferences"
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "companies": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/company"
+      }
+    },
+    "opportunities": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/opportunity"
+      }
+    },
+    "facts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/fact"
+      }
+    },
+    "suggestions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/suggestion"
+      }
+    },
+    "forms": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/form"
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/artifact"
+      }
+    },
+    "attempts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/attempt"
+      }
+    },
+    "responses": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/response"
+      }
+    },
+    "coverage": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/coverage"
+      }
+    },
+    "answers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/answer"
+      }
+    },
+    "dossier": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/dossier"
+      }
+    },
+    "cases": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    },
+    "interview_prep": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/interview_prep"
+      }
+    },
+    "referrals": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/referral"
+      }
+    },
+    "referral_drafts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/referral_draft"
+      }
+    },
+    "contact_events": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/contact_event"
+      }
+    },
+    "change_history": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/change"
+      }
+    },
+    "history_imports": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/history_import"
+      }
+    },
+    "materials": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/material"
+      }
+    },
+    "application_attempts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/application_attempt"
+      }
+    },
+    "credentials": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/credential"
+      }
+    },
+    "rehearsals": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/rehearsal"
+      }
+    },
+    "context_access": {
+      "$ref": "#/$defs/context_access"
+    },
+    "context_insights": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/context_insight"
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "revision",
+    "control",
+    "profile",
+    "search_config",
+    "report_preferences",
+    "sources",
+    "companies",
+    "opportunities",
+    "facts",
+    "suggestions",
+    "forms",
+    "artifacts",
+    "attempts",
+    "responses",
+    "coverage",
+    "answers",
+    "dossier",
+    "cases",
+    "interview_prep",
+    "referrals",
+    "referral_drafts",
+    "contact_events",
+    "change_history",
+    "history_imports",
+    "materials",
+    "application_attempts",
+    "credentials",
+    "rehearsals"
+  ],
+  "additionalProperties": true,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Career Agent private state, version 1",
+  "description": "Structural schema evaluated by the dependency-free helper; cross-record and temporal invariants add stricter checks. Never place candidate state in a distributed source tree.",
+  "$defs": {
+    "source_observation": {
+      "type": "object",
+      "properties": {
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "status": {
+          "enum": [
+            "open",
+            "closed",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "primary": {
+          "type": "boolean"
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "at",
+        "status",
+        "primary",
+        "evidence"
+      ],
+      "additionalProperties": true
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "web",
+            "document",
+            "user_statement"
+          ]
+        },
+        "locator": {
+          "type": "string",
+          "minLength": 1
+        },
+        "coverage": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true,
+          "minItems": 1
+        },
+        "observations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/source_observation"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "locator",
+        "coverage",
+        "observations"
+      ],
+      "additionalProperties": true
+    },
+    "company": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "identity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "company",
+            "speculative_prospect"
+          ]
+        },
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "identity",
+        "kind",
+        "source_ids"
+      ],
+      "additionalProperties": true
+    },
+    "opportunity": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "company_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "identity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "kind": {
+          "enum": [
+            "vacancy",
+            "contract_project"
+          ]
+        },
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true,
+          "minItems": 1
+        },
+        "status_observations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "status": {
+                "enum": [
+                  "open",
+                  "closed",
+                  "unknown"
+                ]
+              },
+              "source_id": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "at",
+              "status",
+              "source_id"
+            ],
+            "additionalProperties": true
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "id",
+        "company_id",
+        "title",
+        "identity",
+        "role_url",
+        "kind",
+        "source_ids",
+        "status_observations"
+      ],
+      "additionalProperties": true
+    },
+    "fact": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "unconfirmed",
+            "confirmed",
+            "disputed"
+          ]
+        },
+        "confidence": {
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        "context": {
+          "enum": [
+            "commercial",
+            "side_project",
+            "volunteer",
+            "learning"
+          ]
+        },
+        "ownership": {
+          "enum": [
+            "individual",
+            "team",
+            "mixed",
+            "unknown"
+          ]
+        },
+        "disclosure": {
+          "enum": [
+            "allowed",
+            "private",
+            "unknown"
+          ]
+        },
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true,
+          "minItems": 1
+        },
+        "contradiction_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "confirmation": {
+          "type": "object",
+          "properties": {
+            "at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "source_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "evidence": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "at",
+            "source_id",
+            "evidence"
+          ],
+          "additionalProperties": true
+        },
+        "context_insight_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "private_interview_only": {
+          "type": "boolean"
+        },
+        "context_reuse_blocked": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "statement",
+        "status",
+        "confidence",
+        "context",
+        "ownership",
+        "disclosure",
+        "source_ids",
+        "contradiction_ids"
+      ],
+      "additionalProperties": true,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "confirmed"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "confirmation"
+            ],
+            "properties": {}
+          }
+        }
+      ]
+    },
+    "suggestion": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "hypothesis",
+            "declined"
+          ]
+        },
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "id",
+        "statement",
+        "status",
+        "source_ids"
+      ],
+      "additionalProperties": true
+    },
+    "form_field": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "control": {
+          "type": "string",
+          "minLength": 1
+        },
+        "help_text": {
+          "type": "string"
+        },
+        "required": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "choices": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "control",
+        "help_text",
+        "required",
+        "choices"
+      ],
+      "additionalProperties": true
+    },
+    "form": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "opportunity_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "observed",
+            "provisional"
+          ]
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/form_field"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "opportunity_id",
+        "status",
+        "at",
+        "source_ids",
+        "fields"
+      ],
+      "additionalProperties": true
+    },
+    "artifact": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "opportunity_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "language": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "status": {
+          "enum": [
+            "prepared",
+            "reviewed"
+          ]
+        },
+        "fact_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "review_required": {
+          "type": "boolean"
+        },
+        "review_fact_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "visibility": {
+          "enum": [
+            "external",
+            "private"
+          ]
+        },
+        "evidence_fact_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "material_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "material_sha256": {
+          "type": "string",
+          "pattern": "[0-9a-f]{64}"
+        },
+        "credential_claims": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "credential_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "portrayal": {
+                "enum": [
+                  "earned",
+                  "current"
+                ]
+              }
+            },
+            "required": [
+              "credential_id",
+              "portrayal"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "context_insight_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "id",
+        "opportunity_id",
+        "kind",
+        "version",
+        "language",
+        "path",
+        "at",
+        "status",
+        "fact_ids"
+      ],
+      "additionalProperties": true
+    },
+    "attempt": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "opportunity_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "outcome": {
+          "enum": [
+            "sent",
+            "not_sent",
+            "uncertain"
+          ]
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1
+        },
+        "channel": {
+          "type": "string",
+          "minLength": 1
+        },
+        "artifact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "resolves_attempt_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "occurred_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "application_attempt_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "id",
+        "opportunity_id",
+        "outcome",
+        "at",
+        "evidence",
+        "channel"
+      ],
+      "additionalProperties": true
+    },
+    "response": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "opportunity_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "enum": [
+            "auto_receipt",
+            "human_reply",
+            "interview",
+            "offer",
+            "rejection",
+            "bounce",
+            "withdrawal",
+            "rejected_before_application"
+          ]
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attempt_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "opportunity_id",
+        "type",
+        "at",
+        "evidence"
+      ],
+      "additionalProperties": true
+    },
+    "coverage": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "opportunity_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "complete",
+            "partial",
+            "unknown"
+          ]
+        },
+        "channels": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true,
+          "minItems": 1
+        },
+        "checked_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "through": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "opportunity_id",
+        "status",
+        "channels",
+        "checked_at",
+        "through"
+      ],
+      "additionalProperties": true
+    },
+    "answer": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "meaning": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope": {
+          "type": "object"
+        },
+        "units": {
+          "type": "object"
+        },
+        "value": {},
+        "confirmed": {
+          "type": "boolean"
+        },
+        "confirmed_at": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "format": "date-time"
+            }
+          ]
+        },
+        "confirmation_evidence": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "valid_from": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "valid_until": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "is_consent": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "meaning",
+        "scope",
+        "units",
+        "value",
+        "confirmed",
+        "valid_from",
+        "valid_until",
+        "is_consent"
+      ],
+      "additionalProperties": true,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "confirmed": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "confirmed_at",
+              "confirmation_evidence"
+            ],
+            "properties": {
+              "confirmed_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "confirmation_evidence": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "dossier": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "opportunity_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "classification": {
+          "enum": [
+            "verified",
+            "inference",
+            "unknown"
+          ]
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "id",
+        "opportunity_id",
+        "statement",
+        "classification",
+        "at",
+        "source_ids"
+      ],
+      "additionalProperties": true
+    },
+    "case": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "opportunity_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "prompt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "classification": {
+          "enum": [
+            "hypothetical",
+            "publicly_documented"
+          ]
+        },
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "id",
+        "opportunity_id",
+        "prompt",
+        "classification",
+        "source_ids"
+      ],
+      "additionalProperties": true
+    },
+    "interview_prep": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "opportunity_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "language": {
+          "type": "string",
+          "minLength": 1
+        },
+        "question": {
+          "type": "string",
+          "minLength": 1
+        },
+        "outline": {
+          "type": "string",
+          "minLength": 1
+        },
+        "question_status": {
+          "enum": [
+            "practice_hypothesis",
+            "publicly_documented"
+          ]
+        },
+        "fact_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "pressure_points": {
+          "type": "array",
+          "items": {}
+        },
+        "employer_questions": {
+          "type": "array",
+          "items": {}
+        },
+        "review_required": {
+          "type": "boolean"
+        },
+        "review_fact_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "context_insight_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "id",
+        "opportunity_id",
+        "language",
+        "question",
+        "outline",
+        "question_status",
+        "fact_ids",
+        "source_ids",
+        "pressure_points",
+        "employer_questions"
+      ],
+      "additionalProperties": true
+    },
+    "referral": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "opportunity_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "public_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observed_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "relevance": {
+          "type": "string",
+          "minLength": 1
+        },
+        "relationship": {
+          "enum": [
+            "acquaintance",
+            "cold",
+            "unknown"
+          ]
+        },
+        "affiliation": {
+          "enum": [
+            "verified_current",
+            "unknown",
+            "former"
+          ]
+        },
+        "verified_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true,
+          "minItems": 1
+        },
+        "company_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "id",
+        "opportunity_id",
+        "public_name",
+        "observed_role",
+        "relevance",
+        "relationship",
+        "affiliation",
+        "verified_at",
+        "source_ids",
+        "company_id"
+      ],
+      "additionalProperties": true
+    },
+    "referral_draft": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "opportunity_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "referral_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "professional_reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fact_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true,
+          "minItems": 1
+        },
+        "review_required": {
+          "type": "boolean"
+        },
+        "review_fact_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "context_insight_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "id",
+        "opportunity_id",
+        "referral_id",
+        "version",
+        "text",
+        "professional_reason",
+        "fact_ids",
+        "source_ids"
+      ],
+      "additionalProperties": true
+    },
+    "contact_event": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "opportunity_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "referral_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "user_reported_sent",
+            "uncertain",
+            "reply",
+            "declined"
+          ]
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "id",
+        "opportunity_id",
+        "referral_id",
+        "status",
+        "at",
+        "evidence"
+      ],
+      "additionalProperties": true
+    },
+    "control": {
+      "type": "object",
+      "properties": {
+        "authorized": {
+          "type": "boolean"
+        },
+        "paused": {
+          "type": "boolean"
+        },
+        "scope": {
+          "type": "string"
+        },
+        "history": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "action": {
+                "enum": [
+                  "start",
+                  "pause",
+                  "resume"
+                ]
+              },
+              "evidence": {
+                "type": "string",
+                "minLength": 1
+              },
+              "at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "scope": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "action",
+              "evidence",
+              "at",
+              "scope"
+            ],
+            "additionalProperties": true
+          }
+        }
+      },
+      "required": [
+        "authorized",
+        "paused",
+        "scope",
+        "history"
+      ],
+      "additionalProperties": true
+    },
+    "profile": {
+      "type": "object",
+      "properties": {
+        "timeline": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string",
+                "minLength": 1
+              },
+              "date_precision": {
+                "type": "string",
+                "minLength": 1
+              },
+              "context": {
+                "enum": [
+                  "commercial",
+                  "side_project",
+                  "volunteer",
+                  "learning"
+                ]
+              },
+              "source_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true,
+                "minItems": 1
+              }
+            },
+            "required": [
+              "label",
+              "date_precision",
+              "context",
+              "source_ids"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "selected_directions": {
+          "type": "array",
+          "items": {}
+        },
+        "metric_dispositions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "fact_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "question_key": {
+                "type": "string",
+                "minLength": 1
+              },
+              "disposition": {
+                "enum": [
+                  "answered",
+                  "no_metric",
+                  "unknown",
+                  "confidential",
+                  "prefer_not_to_disclose"
+                ]
+              }
+            },
+            "required": [
+              "fact_id",
+              "question_key",
+              "disposition"
+            ],
+            "additionalProperties": true
+          }
+        }
+      },
+      "required": [
+        "timeline",
+        "selected_directions",
+        "metric_dispositions"
+      ],
+      "additionalProperties": true
+    },
+    "money": {
+      "type": "object",
+      "properties": {
+        "amount": {
+          "type": "number",
+          "minimum": 0
+        },
+        "currency": {
+          "type": "string",
+          "minLength": 1
+        },
+        "basis": {
+          "enum": [
+            "gross",
+            "net",
+            "unknown"
+          ]
+        },
+        "period": {
+          "enum": [
+            "hour",
+            "month",
+            "year"
+          ]
+        }
+      },
+      "required": [
+        "amount",
+        "currency",
+        "basis",
+        "period"
+      ],
+      "additionalProperties": true
+    },
+    "search_config": {
+      "type": "object",
+      "properties": {
+        "constraints": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "meaning": {
+                "type": "string",
+                "minLength": 1
+              },
+              "value": {},
+              "priority": {
+                "enum": [
+                  "hard",
+                  "preference",
+                  "negotiable"
+                ]
+              },
+              "status": {
+                "enum": [
+                  "known",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "meaning",
+              "value",
+              "priority",
+              "status"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "salary_floor": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/money"
+            }
+          ]
+        },
+        "salary_goal": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/money"
+            }
+          ]
+        }
+      },
+      "required": [
+        "constraints",
+        "salary_floor",
+        "salary_goal"
+      ],
+      "additionalProperties": true
+    },
+    "report_preferences": {
+      "type": "object",
+      "properties": {
+        "frequency": {
+          "type": "string",
+          "minLength": 1
+        },
+        "results_only": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "frequency",
+        "results_only"
+      ],
+      "additionalProperties": true
+    },
+    "change": {
+      "type": "object",
+      "properties": {
+        "operation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "revision_from": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "request": {
+          "type": "object"
+        },
+        "before": {},
+        "after": {}
+      },
+      "required": [
+        "operation",
+        "reason",
+        "at",
+        "revision_from",
+        "request",
+        "before",
+        "after"
+      ],
+      "additionalProperties": true
+    },
+    "history_import": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_locator": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_kind": {
+          "enum": [
+            "user_list",
+            "file",
+            "connector"
+          ]
+        },
+        "employer": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "role_url": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        },
+        "date_text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "date_precision": {
+          "enum": [
+            "exact",
+            "approximate",
+            "unknown"
+          ]
+        },
+        "occurred_at": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "format": "date-time"
+            }
+          ]
+        },
+        "channel": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "sent",
+            "uncertain",
+            "bounced",
+            "rejected",
+            "receipt",
+            "follow_up",
+            "unknown"
+          ]
+        },
+        "event_kind": {
+          "enum": [
+            "initial_application",
+            "follow_up",
+            "auto_receipt",
+            "rejection",
+            "bounce",
+            "unknown"
+          ]
+        },
+        "opportunity_id": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        },
+        "evidence_level": {
+          "enum": [
+            "user_reported",
+            "provider_observed"
+          ]
+        },
+        "provider_message_id": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        },
+        "provider_thread_id": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "source_locator",
+        "source_kind",
+        "employer",
+        "role",
+        "role_url",
+        "date_text",
+        "date_precision",
+        "occurred_at",
+        "channel",
+        "status",
+        "event_kind",
+        "opportunity_id",
+        "evidence_level",
+        "provider_message_id",
+        "provider_thread_id"
+      ],
+      "additionalProperties": false
+    },
+    "material": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "family_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "language": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "[0-9a-f]{64}"
+        },
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "visibility": {
+          "enum": [
+            "external",
+            "private"
+          ]
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "fact_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "credential_claims": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "credential_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "portrayal": {
+                "enum": [
+                  "earned",
+                  "current"
+                ]
+              }
+            },
+            "required": [
+              "credential_id",
+              "portrayal"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "review_required": {
+          "type": "boolean"
+        },
+        "review_fact_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "context_insight_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "id",
+        "family_id",
+        "version",
+        "kind",
+        "language",
+        "path",
+        "sha256",
+        "source_ids",
+        "visibility",
+        "at",
+        "fact_ids"
+      ],
+      "additionalProperties": true
+    },
+    "application_attempt": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "opportunity_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "materials": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "slot": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]{0,39}$"
+              },
+              "material_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "[0-9a-f]{64}"
+              },
+              "version": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "link_path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reference_path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "link_mode": {
+                "enum": [
+                  "symlink",
+                  "reference"
+                ]
+              }
+            },
+            "required": [
+              "slot",
+              "material_id",
+              "sha256",
+              "version",
+              "link_path",
+              "reference_path",
+              "link_mode"
+            ],
+            "additionalProperties": true
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "id",
+        "opportunity_id",
+        "label",
+        "at",
+        "path",
+        "materials"
+      ],
+      "additionalProperties": true
+    },
+    "credential": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "degree",
+            "diploma",
+            "certificate",
+            "course",
+            "transcript",
+            "other"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "issuer": {
+          "type": "string",
+          "minLength": 1
+        },
+        "subjects": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "issued_on": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "format": "date"
+            }
+          ]
+        },
+        "expires_on": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "format": "date"
+            }
+          ]
+        },
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true,
+          "minItems": 1
+        },
+        "verification": {
+          "enum": [
+            "user_provided",
+            "independently_verified",
+            "unverified"
+          ]
+        },
+        "disclosure": {
+          "enum": [
+            "allowed",
+            "private",
+            "unknown"
+          ]
+        },
+        "verification_source_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "verified_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "title",
+        "issuer",
+        "subjects",
+        "issued_on",
+        "expires_on",
+        "source_ids",
+        "verification",
+        "disclosure"
+      ],
+      "additionalProperties": false
+    },
+    "rehearsal": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "opportunity_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "interview_prep_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "language": {
+          "type": "string",
+          "minLength": 1
+        },
+        "answer_summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "feedback": {
+          "type": "string",
+          "minLength": 1
+        },
+        "next_step": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "practiced",
+            "retry_requested",
+            "completed"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "opportunity_id",
+        "interview_prep_id",
+        "at",
+        "language",
+        "answer_summary",
+        "feedback",
+        "next_step",
+        "status"
+      ],
+      "additionalProperties": true
+    },
+    "context_access": {
+      "type": "object",
+      "properties": {
+        "decision": {
+          "enum": [
+            "unasked",
+            "declined",
+            "opted_in",
+            "withdrawn"
+          ]
+        },
+        "source_scope": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "purposes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "strengths",
+              "solved_problems",
+              "latent_capabilities",
+              "private_interview_growth"
+            ]
+          }
+        },
+        "at": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "format": "date-time"
+            }
+          ]
+        },
+        "evidence": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        }
+      },
+      "required": [
+        "decision",
+        "source_scope",
+        "purposes",
+        "at",
+        "evidence"
+      ],
+      "additionalProperties": false
+    },
+    "context_insight": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "strength",
+            "solved_problem",
+            "latent_capability",
+            "growth_area"
+          ]
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true,
+          "minItems": 1
+        },
+        "source_scope": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true,
+          "minItems": 1
+        },
+        "basis": {
+          "enum": [
+            "explicit_fact",
+            "inference"
+          ]
+        },
+        "confidence": {
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        "status": {
+          "enum": [
+            "suggested",
+            "confirmed",
+            "declined"
+          ]
+        },
+        "confirmation": {
+          "type": "object",
+          "properties": {
+            "at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "source_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "evidence": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "at",
+            "source_id",
+            "evidence"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "statement",
+        "source_ids",
+        "source_scope",
+        "basis",
+        "confidence",
+        "status"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

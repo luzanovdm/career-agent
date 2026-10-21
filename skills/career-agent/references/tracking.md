@@ -1,0 +1,22 @@
+# Campaign tracking
+
+Use [the interaction contract](interaction.md) for every intake choice, factual clarification or preference: native questionnaires are required when applicable in the current host/mode; keep conclusions in chat and avoid duplicate prose questions.
+Keep separate records for companies, exact opportunities, artifact versions, outreach/application attempts and response events. Each delivery event references one exact opportunity and may reference its distinct application-attempt record and pinned materials. Repeated applications have separate stable attempt IDs and folders, never overwritten. See [material storage](materials.md). A sent status on one role never applies to another role at the same company.
+
+Only record `sent` with user confirmation or delivery evidence. `uncertain` means the action may have happened and blocks retry until reconciled. `not_sent` means evidence confirms no send. Record actual action occurrence separately from recording/reconciliation time. Resolve an uncertain attempt with a new linked record that preserves the original action time; do not erase history. This project only records manual/external actions; it never submits. Prepared documents and draft attempts are not sends.
+
+Response types: auto receipt, human reply, interview, offer, employer rejection, bounce, withdrawal and rejection-before-application. An auto receipt is not hiring progress; a bounce is not employer rejection. Rejection before application belongs in a separate funnel and needs its own evidence. Preserve chronological events; an earlier interview is not erased by a later rejection. Offer/interview counts are observed events, not a fabricated mutually exclusive final-stage funnel.
+
+## Coverage and silence
+
+Record coverage per exact opportunity with monitored channels, `complete`/`partial`/`unknown`, checked-at time and covered-through time. Absence of a response is silence only when a configured wait window has elapsed and complete coverage reaches the report's as-of time. Unknown/partial coverage is “unobserved”, never silence. Associate delivery responses with exact send attempts. A bounce is a known delivery problem, not silence, for that attempt; an old bounce must not suppress observation after a later confirmed resend. Keep historical bounce totals separately. A receipt can be followed by no hiring response; distinguish both in prose. Never claim inbox access or comprehensive coverage the host does not have.
+
+## Reports
+
+Ask the user for report frequency and results-only versus detailed reporting. Store the preference. Without scheduling capability, prepare on demand in conversation; do not promise background reports. Pause stops research; preserve tracking and requested reports. Resume research requires an explicit user choice.
+
+Report unique opportunities considered, unique companies, prepared roles, sent roles, attempts, unresolved submits, auto receipts, human responses, interviews/offers, bounces, employer rejections, rejection-before-application, known silence and unobserved coverage. State denominators and as-of time. Response rates use confirmed-sent unique roles, not packet versions, company prospects or raw event counts. Show zero denominators as unavailable. Totals can overlap (a role can have both an interview and later rejection); label that clearly.
+
+When the optional helper is available, use its deterministic `stats` output. It distinguishes event/report cutoff from evidence-check cutoff, uses actual send occurrence for waiting windows and accepts later checks that attest historical coverage. Record both cutoffs; an explicit evidence cutoff reproduces an earlier knowledge snapshot. Inventory/import counts remain current, not historical snapshots. It does not infer mailbox coverage or outcomes. Check state validation before reporting; never repair uncertainty by guessing.
+
+Use [history import](history-import.md) for prior lists/files or authorized read-only mail reconciliation. Report imported user/provider observations separately from confirmed-sent events; threads, follow-ups and unscoped company contact are not additional applications. Update canonical state first, then refresh Career.xlsx or the plain Career.csv snapshot through available tools. The ordinary user does not run helpers. Preserve manually changed views and report stale/failed exports honestly.

@@ -1,0 +1,167 @@
+{
+  "schema_version": 1,
+  "revision": 0,
+  "control": {
+    "authorized": false,
+    "paused": true,
+    "scope": "",
+    "history": []
+  },
+  "profile": {
+    "timeline": [],
+    "selected_directions": [],
+    "metric_dispositions": []
+  },
+  "search_config": {
+    "constraints": [],
+    "salary_floor": null,
+    "salary_goal": null
+  },
+  "report_preferences": {
+    "frequency": "on_demand",
+    "results_only": true
+  },
+  "sources": [
+    {
+      "id": "source-a",
+      "kind": "web",
+      "locator": "https://northstar-demo.example/jobs/api-1",
+      "coverage": [
+        "company_careers"
+      ],
+      "observations": [
+        {
+          "at": "2026-01-01T12:00:00Z",
+          "status": "open",
+          "primary": true,
+          "evidence": "Synthetic API Engineer listing"
+        }
+      ]
+    },
+    {
+      "id": "source-user",
+      "kind": "user_statement",
+      "locator": "synthetic-intake-1",
+      "coverage": [
+        "intake"
+      ],
+      "observations": [
+        {
+          "at": "2026-01-01T12:00:00Z",
+          "status": "not_applicable",
+          "primary": true,
+          "evidence": "Alex Demo confirms implementing retry handling in an invoice importer."
+        }
+      ]
+    }
+  ],
+  "companies": [
+    {
+      "id": "company-a",
+      "name": "Northstar Demo",
+      "identity": "northstar-demo.example",
+      "kind": "company",
+      "source_ids": [
+        "source-a"
+      ]
+    }
+  ],
+  "opportunities": [
+    {
+      "id": "role-a",
+      "company_id": "company-a",
+      "title": "API Engineer",
+      "identity": "employer:api-1",
+      "role_url": "https://northstar-demo.example/jobs/api-1",
+      "kind": "vacancy",
+      "source_ids": [
+        "source-a"
+      ],
+      "status_observations": [
+        {
+          "at": "2026-01-01T12:00:00Z",
+          "status": "open",
+          "source_id": "source-a"
+        }
+      ]
+    },
+    {
+      "id": "role-b",
+      "company_id": "company-a",
+      "title": "Product Engineer",
+      "identity": "employer:product-2",
+      "role_url": "https://northstar-demo.example/jobs/product-2",
+      "kind": "vacancy",
+      "source_ids": [
+        "source-a"
+      ],
+      "status_observations": [
+        {
+          "at": "2026-01-01T12:00:00Z",
+          "status": "unknown",
+          "source_id": "source-a"
+        }
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "id": "fact-a",
+      "statement": "Implemented retry handling for an invoice importer.",
+      "status": "confirmed",
+      "confidence": "high",
+      "context": "commercial",
+      "ownership": "individual",
+      "disclosure": "allowed",
+      "source_ids": [
+        "source-user"
+      ],
+      "contradiction_ids": [],
+      "confirmation": {
+        "at": "2026-01-01T12:00:00Z",
+        "source_id": "source-user",
+        "evidence": "Alex Demo confirmed this exact statement."
+      }
+    }
+  ],
+  "suggestions": [
+    {
+      "id": "suggestion-a",
+      "statement": "The importer may have reduced manual retry work; outcome evidence is not yet available.",
+      "status": "hypothesis",
+      "source_ids": []
+    }
+  ],
+  "artifacts": [
+    {
+      "id": "packet-v1",
+      "opportunity_id": "role-a",
+      "kind": "resume",
+      "version": 1,
+      "language": "English",
+      "path": "artifacts/role-a/resume-v1.txt",
+      "at": "2026-01-01T12:00:00Z",
+      "status": "prepared",
+      "fact_ids": [
+        "fact-a"
+      ]
+    }
+  ],
+  "attempts": [],
+  "responses": [],
+  "coverage": [],
+  "answers": [],
+  "dossier": [],
+  "cases": [],
+  "interview_prep": [],
+  "referrals": [],
+  "referral_drafts": [],
+  "contact_events": [],
+  "forms": [],
+  "change_history": [],
+  "history_imports": [],
+  "materials": [],
+  "application_attempts": [],
+  "credentials": [],
+  "rehearsals": []
+}
