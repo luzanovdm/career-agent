@@ -1,6 +1,6 @@
 # Career Agent
 
-A career assistant you use through conversation: review your experience, choose career directions, find roles and companies, prepare applications, track progress, and practice interviews. It keeps claims grounded in evidence and writes confidently without inventing achievements.
+A career assistant you use through conversation: review your experience, choose career directions, find roles and companies, prepare applications, track progress, and practice interviews. It keeps claims grounded in evidence and writes confidently without inventing achievements. When adapting a resume, it preserves the original achievements and numbers, clarifies their meaning in small batches, and checks the draft for unexplained losses.
 
 ## Start with a conversation
 

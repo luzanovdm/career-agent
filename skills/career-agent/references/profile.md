@@ -1,5 +1,7 @@
 # Profile and adaptive intake
 
+Follow [evidence-preserving achievement adaptation](achievement-adaptation.md): retain original claims/metrics, interpret contribution and significance before selection, reuse grouped clarification answers, and audit the actual draft and justified omissions before saving a resume.
+
 Use [the interaction contract](interaction.md) for every intake choice, factual clarification or preference: native questionnaires are required when applicable in the current host/mode; keep conclusions in chat and avoid duplicate prose questions.
 ## Begin from evidence
 
@@ -29,7 +31,7 @@ For each show likely work, supporting facts, stretch points and what to validate
 
 ## Guided confirmation
 
-Check for material missing/conflicting dates and transitions, omitted technologies or achievements, unclear personal ownership and thin supporting evidence. Ask only when the answer changes a selected direction or an impending action. Offer prefilled alternatives, allow unknown/confidential/prefer not to disclose, and never demand sensitive reasons for a career gap or block useful work over a nonessential omission. Use short adaptive batches based on the documents. For example, if an API project is documented, offer: “Implemented [supported API component] for [known workflow]”; “Owned [confirm scope]”; “Contributed [known component] to the team's [supported outcome]”. Brackets are questions, never facts. Suggest technologies only when context makes them plausible and explicitly label them hypotheses. Let the user select, edit, complete, reject or say unknown.
+Check for material missing/conflicting dates and transitions, omitted technologies or achievements, unclear personal ownership and thin supporting evidence. Ask only when the answer changes a selected direction or an impending action. Offer prefilled alternatives, allow unknown/confidential/prefer not to disclose, and never demand sensitive reasons for a career gap or block useful work over a nonessential omission. Use short adaptive batches based on the documents. For example, if an API project is documented, offer: “Implemented [supported API component] for [known workflow]”; “Implemented [known mechanism] for [confirm workflow or constraint]”; “Contributed [known component] to the team's [supported outcome]”. Brackets are questions, never facts. Suggest technologies only when context makes them plausible and explicitly label them hypotheses. Let the user select, edit, complete, reject or say unknown.
 
 Across the priority achievements, ask one compact clarification batch, selecting only missing items that matter: baseline/result and units, measurement period, evidence, team outcome versus personal contribution, and permission to disclose. Persist the answer or disposition: `answered`, `no_metric`, `unknown`, `confidential`, or `prefer_not_to_disclose`. Do not repeat this batch separately for every accomplishment. Do not repeatedly ask the same metric question; reopen only if the user supplies new evidence or requests revision. An unquantified accomplishment can still be strong: action + system/problem + supported scope/outcome. Never manufacture a percentage, causal attribution or seniority label.
 

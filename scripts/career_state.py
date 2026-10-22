@@ -18,9 +18,9 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 COLLECTIONS = (
     "sources", "companies", "opportunities", "facts", "suggestions", "artifacts",
     "attempts", "responses", "coverage", "answers", "dossier", "cases",
-    "interview_prep", "referrals", "referral_drafts", "contact_events", "forms", "history_imports", "materials", "application_attempts", "credentials", "rehearsals", "context_insights", "search_cases",
+    "interview_prep", "referrals", "referral_drafts", "contact_events", "forms", "history_imports", "materials", "application_attempts", "credentials", "rehearsals", "context_insights", "search_cases", "achievement_evidence", "achievement_interpretations",
 )
-OPTIONAL_COLLECTIONS = {"context_insights", "search_cases"}
+OPTIONAL_COLLECTIONS = {"context_insights", "search_cases", "achievement_evidence", "achievement_interpretations"}
 RESPONSE_TYPES = {"auto_receipt", "human_reply", "interview", "offer", "rejection",
                   "bounce", "withdrawal", "rejected_before_application"}
 TRACKING_KEYS = {"fbclid", "gclid", "msclkid"}
@@ -47,6 +47,11 @@ def timestamp(value):
 
 def utcnow():
     return datetime.now(timezone.utc).isoformat()
+
+
+def numeric_anchors(text):
+    """Lexical source numbers, retaining signs/separators; not a unit or impact parser."""
+    return re.findall(r"(?<![\w])[+−-]?\d+(?:[.,]\d+)*(?:%|‰)?", text)
 
 
 def canonical_url(value):
@@ -290,7 +295,7 @@ def validate(state):
     for item in profile.get("metric_dispositions", []):
         _text(item, "fact_id", "question_key")
         require(item["fact_id"] in index["facts"], "Metric must refer to a fact")
-        _one(item, "disposition", {"answered", "no_metric", "unknown", "confidential", "prefer_not_to_disclose"})
+        _one(item, "disposition", {"pending", "answered", "no_metric", "unknown", "confidential", "prefer_not_to_disclose"})
         key = (item["fact_id"], item["question_key"])
         require(key not in metric_keys, "Metric question already has a disposition")
         metric_keys.add(key)
@@ -547,7 +552,38 @@ def validate(state):
     validate_materials_and_credentials(state, index)
     validate_context(state, index)
     validate_search_cases(state, index)
+    validate_achievements(state, index)
     return state
+
+
+def validate_achievements(state, index):
+    """Keep raw evidence lossless; interpretations are separate versioned private records."""
+    from collections import Counter
+    for row in state.get("achievement_evidence", []):
+        require(row["fact_id"] in index["facts"] and row["source_id"] in index["sources"], "Achievement source/fact missing")
+        require(row["source_id"] in index["facts"][row["fact_id"]]["source_ids"], "Achievement source must support its source fact")
+        require(row["numeric_anchors"] == numeric_anchors(row["original_text"]), "Original numerical anchors must be retained exactly")
+        require(len({m["id"] for m in row["metrics"]}) == len(row["metrics"]), "Duplicate source metric ID")
+        for metric in row["metrics"]:
+            require(metric["verbatim"] in row["original_text"], "Metric must be verbatim source evidence")
+            require(all(u.casefold() in metric["verbatim"].casefold() for u in metric["units"]), "Metric units must come from its source span")
+        anchors = Counter(n for m in row["metrics"] for n in numeric_anchors(m["verbatim"]))
+        require(anchors == Counter(row["numeric_anchors"]), "Every source number needs a metric interpretation or unresolved anchor")
+    versions = set()
+    for row in state.get("achievement_interpretations", []):
+        require(row["achievement_id"] in index["achievement_evidence"], "Unknown source achievement")
+        key = (row["achievement_id"], row["version"])
+        require(key not in versions, "Duplicate achievement interpretation version")
+        versions.add(key)
+        for field in row["fields"].values():
+            _refs(field, "fact_ids", index["facts"], field["status"] == "supported")
+            if field["status"] == "supported": _text(field, "text")
+    for material in state["materials"]:
+        if "adaptation_audit" in material:
+            for entry in material["adaptation_audit"]["entries"]:
+                require(entry["achievement_id"] in index["achievement_evidence"], "Audit references unknown source achievement")
+                _refs(entry, "fact_ids", index["facts"])
+                for metric in entry["metrics"]: _refs(metric, "fact_ids", index["facts"])
 
 
 def add_record(state, collection, row):

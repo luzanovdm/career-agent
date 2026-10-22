@@ -1,5 +1,7 @@
 # Search completion: new saved application cases
 
+Follow [evidence-preserving achievement adaptation](achievement-adaptation.md): retain original claims/metrics, interpret contribution and significance before selection, reuse grouped clarification answers, and audit the actual draft and justified omissions before saving a resume.
+
 A request to find suitable opportunities means new actionable application cases with saved ready-to-review packages, not a two-link chat shortlist. Reuse the chosen active workspace and all current preferences. Do not reopen an unfinished archive or search other profiles implicitly. Only an explicitly narrower research-only request ends before packages. Preparing is not permission to send, accept agreements, create accounts or reapply.
 
 ## Before research

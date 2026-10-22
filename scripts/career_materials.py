@@ -82,6 +82,11 @@ def register_material(state_path, workspace, request, input_path, expected_revis
             cs.require(cs.canonical_json(existing) == cs.canonical_json(record), "Immutable material ID already has another version/content")
             material_file(workspace, existing)
             return state
+        if record["kind"] == "resume" and record["visibility"] == "external" and state.get("achievement_evidence"):
+            import career_achievements as achievements
+            text = raw.decode("utf-8") if suffix in {".md", ".txt"} else record.get("extracted_text")
+            cs.require(isinstance(text, str) and text.strip(), "Readable resume text required for source adaptation audit")
+            achievements.require_resume_audit(state, text, record)
         candidate = cs.add_record(state, "materials", record)
         destination = inside(workspace, record["path"])
         destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)

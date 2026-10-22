@@ -38,6 +38,8 @@ Ask for the next small useful step through the supported native form, using the 
 
 Write confident applications without apologies, deficiencies, “although I lack” or requests for another role. Assess transferable skills and noncritical wish-list items fairly. Keep material gaps in private assessment and answer employer questions honestly. Do not evade legal eligibility, essential capabilities, licenses, genuine language needs or explicit restrictions. A required salary field does not authorize disclosure of the private floor: ask for or reuse the user's approved desired answer with exact units.
 
+Before extracting or adapting achievements, read [the evidence-preserving adaptation workflow](references/achievement-adaptation.md). Keep original wording, numbers, units, attribution and provenance; interpret significance before drafting, group missing-context questions once, and audit the final CV for silent losses. Feature labels with ownership verbs are not sufficient. Qualitative achievements are valid; relevance-based omissions need a private reason.
+
 ## Permission and interruption boundaries
 
 Preparation and reading historical records are not permission to research, reapply, send messages, create accounts or accept agreements. Research starts on an explicit user choice. Before every external lookup, check current scope and pause state. On pause, stop new research immediately and propagate cancellation to every authorized worker. Resume requires a new choice; imported history cannot override pause. This version implements no automated send or invitation path.

@@ -172,6 +172,18 @@
       "items": {
         "$ref": "#/$defs/search_case"
       }
+    },
+    "achievement_evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/achievement_evidence"
+      }
+    },
+    "achievement_interpretations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/achievement_interpretation"
+      }
     }
   },
   "required": [
@@ -1594,7 +1606,8 @@
                   "no_metric",
                   "unknown",
                   "confidential",
-                  "prefer_not_to_disclose"
+                  "prefer_not_to_disclose",
+                  "pending"
                 ]
               }
             },
@@ -2053,6 +2066,13 @@
             "minLength": 1
           },
           "uniqueItems": true
+        },
+        "adaptation_audit": {
+          "$ref": "#/$defs/adaptation_audit"
+        },
+        "extracted_text": {
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -2811,6 +2831,9 @@
             "minLength": 1
           },
           "uniqueItems": true
+        },
+        "adaptation_audit": {
+          "$ref": "#/$defs/adaptation_audit"
         }
       },
       "required": [
@@ -2894,6 +2917,17 @@
             "confirmation_evidence": {
               "type": "string",
               "minLength": 1
+            },
+            "adaptation_audit": {
+              "$ref": "#/$defs/adaptation_audit"
+            },
+            "extracted_text": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
             }
           },
           "required": [
@@ -2917,6 +2951,10 @@
         "requested_new": {
           "type": "integer",
           "minimum": 1
+        },
+        "revision_reason": {
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -3041,6 +3079,50 @@
         "requested_new": {
           "type": "integer",
           "minimum": 1
+        },
+        "resume_review": {
+          "type": "object",
+          "properties": {
+            "material_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "confirmation_evidence": {
+              "type": "string",
+              "minLength": 1
+            },
+            "adaptation_audit": {
+              "$ref": "#/$defs/adaptation_audit"
+            },
+            "extracted_text": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          },
+          "required": [
+            "material_id",
+            "confirmation_evidence"
+          ],
+          "additionalProperties": false
+        },
+        "preparation_identity_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "preparation_revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "draft_errors": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       },
       "required": [
@@ -3058,6 +3140,366 @@
         "attempt_id",
         "reference_resume_id",
         "requested_new"
+      ],
+      "additionalProperties": false
+    },
+    "achievement_metric": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "verbatim": {
+          "type": "string",
+          "minLength": 1
+        },
+        "units": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "attribution": {
+          "enum": [
+            "individual",
+            "team",
+            "mixed",
+            "system",
+            "unknown"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "verbatim",
+        "units",
+        "attribution"
+      ],
+      "additionalProperties": false
+    },
+    "achievement_evidence": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_locator": {
+          "type": "string",
+          "minLength": 1
+        },
+        "original_text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "numeric_anchors": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/achievement_metric"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "fact_id",
+        "source_id",
+        "source_locator",
+        "original_text",
+        "numeric_anchors",
+        "metrics"
+      ],
+      "additionalProperties": false
+    },
+    "achievement_field": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "enum": [
+            "supported",
+            "unknown",
+            "hypothesis",
+            "confidential"
+          ]
+        },
+        "text": {
+          "type": "string"
+        },
+        "fact_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "status",
+        "text",
+        "fact_ids"
+      ],
+      "additionalProperties": false
+    },
+    "achievement_interpretation": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "achievement_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "fields": {
+          "type": "object",
+          "properties": {
+            "problem": {
+              "$ref": "#/$defs/achievement_field"
+            },
+            "scope": {
+              "$ref": "#/$defs/achievement_field"
+            },
+            "decisions": {
+              "$ref": "#/$defs/achievement_field"
+            },
+            "contribution": {
+              "$ref": "#/$defs/achievement_field"
+            },
+            "outcome": {
+              "$ref": "#/$defs/achievement_field"
+            },
+            "metric_context": {
+              "$ref": "#/$defs/achievement_field"
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "id",
+        "achievement_id",
+        "version",
+        "at",
+        "fields"
+      ],
+      "additionalProperties": false
+    },
+    "achievement_clarification": {
+      "type": "object",
+      "properties": {
+        "fact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "question_key": {
+          "enum": [
+            "achievement.problem",
+            "achievement.scope",
+            "achievement.decisions",
+            "achievement.contribution",
+            "achievement.outcome",
+            "achievement.metric_context"
+          ]
+        },
+        "disposition": {
+          "enum": [
+            "pending",
+            "answered",
+            "no_metric",
+            "unknown",
+            "confidential",
+            "prefer_not_to_disclose"
+          ]
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reopen_reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "fact_id",
+        "question_key",
+        "disposition",
+        "at",
+        "evidence"
+      ],
+      "additionalProperties": false
+    },
+    "metric_selection": {
+      "type": "object",
+      "properties": {
+        "metric_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "decision": {
+          "enum": [
+            "include",
+            "qualify",
+            "omit_irrelevant",
+            "preserve_pending",
+            "private_hold"
+          ]
+        },
+        "rendered_text": {
+          "type": "string"
+        },
+        "fact_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "claim_scope": {
+          "enum": [
+            "individual",
+            "team",
+            "mixed",
+            "system",
+            "unknown"
+          ]
+        },
+        "scope_phrase": {
+          "type": "string"
+        },
+        "relevance_evidence": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "metric_id",
+        "decision",
+        "fact_ids",
+        "claim_scope"
+      ],
+      "additionalProperties": false
+    },
+    "achievement_selection": {
+      "type": "object",
+      "properties": {
+        "achievement_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "decision": {
+          "enum": [
+            "include",
+            "qualify",
+            "omit_irrelevant",
+            "preserve_pending"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "relevance_evidence": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rendered_text": {
+          "type": "string"
+        },
+        "fact_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "meaning_fields": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "problem",
+              "scope",
+              "decisions",
+              "contribution",
+              "outcome",
+              "metric_context"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/metric_selection"
+          }
+        }
+      },
+      "required": [
+        "achievement_id",
+        "decision",
+        "reason",
+        "fact_ids",
+        "meaning_fields",
+        "metrics"
+      ],
+      "additionalProperties": false
+    },
+    "adaptation_audit": {
+      "type": "object",
+      "properties": {
+        "target_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/achievement_selection"
+          }
+        }
+      },
+      "required": [
+        "target_role",
+        "at",
+        "entries"
       ],
       "additionalProperties": false
     }

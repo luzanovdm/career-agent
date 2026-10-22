@@ -10,9 +10,9 @@ import sys
 
 
 SOURCE = Path(__file__).resolve().parents[1]
-HELPERS = ("career_state.py", "career_snapshot.py", "career_materials.py", "career_search.py")
+HELPERS = ("career_state.py", "career_snapshot.py", "career_materials.py", "career_search.py", "career_achievements.py")
 REFERENCES = ("profile.md", "discovery.md", "packets.md", "tracking.md", "interviews.md",
-              "history-import.md", "research-tools.md", "materials.md", "records.md", "interaction.md", "context-enrichment.md", "host-capabilities.md", "search-cases.md")
+              "history-import.md", "research-tools.md", "materials.md", "records.md", "interaction.md", "context-enrichment.md", "host-capabilities.md", "search-cases.md", "achievement-adaptation.md")
 
 
 def build(destination):

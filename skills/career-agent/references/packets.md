@@ -1,5 +1,7 @@
 # Application packets
 
+Follow [evidence-preserving achievement adaptation](achievement-adaptation.md): retain original claims/metrics, interpret contribution and significance before selection, reuse grouped clarification answers, and audit the actual draft and justified omissions before saving a resume.
+
 Use [the interaction contract](interaction.md) for every intake choice, factual clarification or preference: native questionnaires are required when applicable in the current host/mode; keep conclusions in chat and avoid duplicate prose questions.
 Prepare for each suitable new exact case selected by the authorized search scope; finding cases includes packet preparation by default under [the search completion contract](search-cases.md). A standalone packet request still targets its selected exact opportunity. Recheck current source evidence where browsing is authorized. If it is unavailable, label the packet's status unverified and preserve unresolved checks. Read the confirmed fact bank and disclosure restrictions before drafting.
 
