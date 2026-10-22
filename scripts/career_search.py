@@ -547,4 +547,4 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(cs.run_cli(main))

@@ -1,6 +1,6 @@
 # Profile and adaptive intake
 
-Follow [evidence-preserving achievement adaptation](achievement-adaptation.md): retain original claims/metrics, interpret contribution and significance before selection, reuse grouped clarification answers, and audit the actual draft and justified omissions before saving a resume.
+Follow [evidence-preserving achievement adaptation](achievement-adaptation.md): retain original claims/metrics, interpret contribution and significance before selection, reuse grouped clarification answers, and audit the actual draft, retained secondary strengths and specifically justified exclusions before saving a resume.
 
 Use [the interaction contract](interaction.md) for every intake choice, factual clarification or preference: native questionnaires are required when applicable in the current host/mode; keep conclusions in chat and avoid duplicate prose questions.
 ## Begin from evidence
@@ -56,3 +56,5 @@ Offer to import existing application history from a list/table/file using [histo
 Offer optional [scoped other-chat/memory enrichment](context-enrichment.md) once without blocking intake; skip is a complete answer. Keep suggested strengths separate from verified career facts and all growth areas private for interview preparation.
 
 Preserve exclusions at their confirmed scope: company-wide exclusions persist across sources; a restriction on a sending channel does not automatically ban discovering public evidence through that channel. Never turn one user's channel choice into a universal default.
+
+Relevance changes order, emphasis and detail; preserve secondary meaningful accomplishments and supported metrics concisely. Do not drop them through a role template, arbitrary length cutoff or blanket unselected-to-irrelevant mapping. Explain primary achievements more deeply. Mark conditional/failed drafts clearly in the private handoff; audit readiness is not semantic/editorial approval.

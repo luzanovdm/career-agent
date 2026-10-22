@@ -3374,7 +3374,8 @@
             "qualify",
             "omit_irrelevant",
             "preserve_pending",
-            "private_hold"
+            "private_hold",
+            "omit_justified"
           ]
         },
         "rendered_text": {
@@ -3403,6 +3404,26 @@
         "relevance_evidence": {
           "type": "string",
           "minLength": 1
+        },
+        "omission_reason": {
+          "enum": [
+            "duplicate",
+            "superseded",
+            "confidential",
+            "owner_excluded"
+          ]
+        },
+        "omission_evidence": {
+          "type": "string",
+          "minLength": 1
+        },
+        "omission_source_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "duplicate_of": {
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -3425,7 +3446,8 @@
             "include",
             "qualify",
             "omit_irrelevant",
-            "preserve_pending"
+            "preserve_pending",
+            "omit_justified"
           ]
         },
         "reason": {
@@ -3466,6 +3488,32 @@
           "items": {
             "$ref": "#/$defs/metric_selection"
           }
+        },
+        "omission_reason": {
+          "enum": [
+            "duplicate",
+            "superseded",
+            "confidential",
+            "owner_excluded"
+          ]
+        },
+        "omission_evidence": {
+          "type": "string",
+          "minLength": 1
+        },
+        "omission_source_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "duplicate_of": {
+          "type": "string",
+          "minLength": 1
+        },
+        "emphasis": {
+          "enum": [
+            "primary",
+            "secondary"
+          ]
         }
       },
       "required": [

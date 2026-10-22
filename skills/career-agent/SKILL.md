@@ -7,6 +7,8 @@ description: Build an evidence-backed career profile, discover jobs and companie
 
 Conduct conversation and intake in the user's language, preserving professional terminology naturally. Choose resume, cover-letter and interview language separately for the target role. Distributed instructions are English; private runtime records may use any language.
 
+On invocation, read [release maintenance](references/updates.md) when update/network capabilities are available: use the daily cache, offer Update/Later for a newer release, and replace files only after approval while idle. Offline checks do not block career work or imply latest. An explicit update-check request can refresh the cache.
+
 ## First use and capabilities
 
 For profile setup/onboarding, read [the profile intake reference](references/profile.md) before the first file invitation. That invitation must explicitly welcome current **and available past/role-specific resume versions**, and include one concise optional supporting-evidence list: diplomas/degrees or relevant transcripts, certificates/course records, portfolio/GitHub, publications or recommendations. Do not narrow the invitation to only the current resume or application history. Say that one available file is enough to begin and missing items never block progress; redacted copies are welcome. If files were already supplied, acknowledge them and invite only missing optional categories once rather than re-requesting them.
@@ -38,7 +40,7 @@ Ask for the next small useful step through the supported native form, using the 
 
 Write confident applications without apologies, deficiencies, “although I lack” or requests for another role. Assess transferable skills and noncritical wish-list items fairly. Keep material gaps in private assessment and answer employer questions honestly. Do not evade legal eligibility, essential capabilities, licenses, genuine language needs or explicit restrictions. A required salary field does not authorize disclosure of the private floor: ask for or reuse the user's approved desired answer with exact units.
 
-Before extracting or adapting achievements, read [the evidence-preserving adaptation workflow](references/achievement-adaptation.md). Keep original wording, numbers, units, attribution and provenance; interpret significance before drafting, group missing-context questions once, and audit the final CV for silent losses. Feature labels with ownership verbs are not sufficient. Qualitative achievements are valid; relevance-based omissions need a private reason.
+Before extracting or adapting achievements, read [the evidence-preserving adaptation workflow](references/achievement-adaptation.md). Keep original wording, numbers, units, attribution and provenance; interpret significance before drafting, group missing-context questions once, and audit the final CV for silent losses. Feature labels with ownership verbs are not sufficient. Qualitative achievements are valid. Relevance sets order, emphasis and depth; keep secondary meaningful strengths and supported metrics concise instead of deleting them. Never map every unselected item to irrelevant. Only specific duplication, corrected/superseded evidence, confidentiality or explicit owner exclusion can justify omission. Technical audit readiness is not editorial/semantic approval; clearly label failed or conditional drafts in the private delivery summary.
 
 ## Permission and interruption boundaries
 

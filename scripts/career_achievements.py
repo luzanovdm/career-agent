@@ -83,6 +83,24 @@ def clarify(state, request):
     return cs.validate(candidate)
 
 
+def omission_allowed(state, selection, original, entries, evidence):
+    reason = selection.get("omission_reason")
+    if not selection.get("omission_evidence"): return False
+    if reason == "duplicate":
+        other = selection.get("duplicate_of")
+        if not (other in evidence and other != original["id"] and entries[other]["decision"] in {"include", "qualify"}): return False
+        # Shared provenance can cover different work; only equal source wording proves a duplicate here.
+        if " ".join(evidence[other]["original_text"].split()) != " ".join(original["original_text"].split()): return False
+        retained = entries[other].get("rendered_text", "")
+        return not (Counter(numeric for numeric in cs.numeric_anchors(original["original_text"])) - Counter(cs.numeric_anchors(retained))) and all(unit.casefold() in retained.casefold() for metric in original["metrics"] for unit in metric["units"])
+    if reason == "confidential":
+        fact = next(f for f in state["facts"] if f["id"] == original["fact_id"])
+        return fact["disclosure"] == "private" or any(r["fact_id"] == original["fact_id"] and r["disposition"] in {"confidential", "prefer_not_to_disclose"} for r in state["profile"]["metric_dispositions"])
+    if reason in {"owner_excluded", "superseded"}:
+        return any(source["id"] == selection.get("omission_source_id") and source["kind"] == "user_statement" for source in state["sources"])
+    return False
+
+
 def audit_resume(state, text, audit):
     """Check actual rendered text and explicit coverage; prose truth still needs evidence review."""
     cs.validate(state)
@@ -99,7 +117,9 @@ def audit_resume(state, text, audit):
         entry = entries[identifier]
         decision = entry["decision"]
         if decision == "omit_irrelevant":
-            if not entry.get("relevance_evidence"): errors.append(identifier + ": omission needs target-role relevance evidence")
+            errors.append(identifier + ": relevance controls emphasis, not deletion; retain this strength concisely as secondary")
+        if decision == "omit_justified":
+            if not omission_allowed(state, entry, original, entries, evidence): errors.append(identifier + ": omission needs a specific duplicate/correction/privacy/owner decision and provenance")
             omitted.append(identifier)
             if entry.get("rendered_text"): errors.append(identifier + ": an omitted achievement must not declare rendered wording")
         rendered = entry.get("rendered_text", "")
@@ -132,9 +152,10 @@ def audit_resume(state, text, audit):
             selected = metric_entries.get(metric["id"])
             if not selected: continue
             action = selected["decision"]
-            if action == "omit_irrelevant" and not (selected.get("relevance_evidence") or (decision == "omit_irrelevant" and entry.get("relevance_evidence"))):
-                errors.append(identifier + ": missing context is not evidence of irrelevance")
-            if action in {"private_hold", "omit_irrelevant"}:
+            if action == "omit_irrelevant": errors.append(identifier + ": preserve secondary supported metrics; relevance is not an omission permission")
+            if action == "omit_justified" and not ((decision == "omit_justified" and omission_allowed(state, entry, original, entries, evidence)) or omission_allowed(state, selected, original, entries, evidence)):
+                errors.append(identifier + ": metric omission needs a specific supported exclusion, not template selection")
+            if action in {"private_hold", "omit_irrelevant", "omit_justified"}:
                 source_numbers = set(cs.numeric_anchors(metric["verbatim"]))
                 visible = bool(source_numbers & set(cs.numeric_anchors(rendered))) if source_numbers else metric["verbatim"].casefold() in rendered.casefold()
                 if visible: errors.append(identifier + ": possible disclosure or contradictory inclusion of a held/omitted metric; review actual wording")
@@ -167,7 +188,7 @@ def audit_resume(state, text, audit):
                 errors.append(identifier + ": qualify the outcome's actual scope in the wording")
             if scope == "individual" and not any(facts[i]["ownership"] == "individual" and not (Counter(cs.numeric_anchors(metric["verbatim"])) - Counter(cs.numeric_anchors(facts[i]["statement"]))) for i in support):
                 errors.append(identifier + ": personal attribution of the number is unconfirmed")
-    return {"valid": not errors, "ready": not errors and not pending, "errors": errors, "pending_achievement_ids": sorted(set(pending)), "omitted_irrelevant_ids": omitted,
+    return {"valid": not errors, "ready": not errors and not pending, "errors": errors, "pending_achievement_ids": sorted(set(pending)), "omitted_irrelevant_ids": [], "omitted_justified_ids": omitted,
             "source_achievement_count": len(evidence), "semantic_review_required": True}
 
 
@@ -218,4 +239,4 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(cs.run_cli(main))

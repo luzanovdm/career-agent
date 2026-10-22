@@ -265,6 +265,7 @@ class MaterialTests(unittest.TestCase):
             root = Path(directory); source = root / "synthetic-source"
             for name in ("skills", "scripts", "references"):
                 shutil.copytree(ROOT / name, source / name, ignore=shutil.ignore_patterns("__pycache__"))
+            shutil.copyfile(ROOT / "release.json", source / "release.json")
             unexpected = source / "skills/career-agent/references/alex-demo-private.md"
             unexpected.write_text("Synthetic note excluded from distribution.")
             output = root / "bundle"

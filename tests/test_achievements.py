@@ -128,12 +128,12 @@ class AchievementTests(unittest.TestCase):
         answered = achievements.clarify(pending, clarification("answered", evidence="Meaning now explained"))
         self.assertEqual(answered["profile"]["metric_dispositions"][0]["disposition"], "answered")
 
-    def test_intentional_irrelevant_omission_is_distinct_from_unclear_context(self):
+    def test_relevance_alone_cannot_omit_source_strengths(self):
         state = captured("Ran a volunteer archive for 12 months.")
         metrics = [{"metric_id": "uninterpreted-1", "decision": "omit_irrelevant", "fact_ids": [], "claim_scope": "unknown"}]
         record = audit("", decision="omit_irrelevant", fact_ids=[], meaning_fields=[], metrics=metrics,
                        relevance_evidence="Target requires parser implementation; this unrelated archive administration does not support it.")
-        self.assertTrue(achievements.audit_resume(state, "# Resume\n", record)["valid"])
+        self.assertFalse(achievements.audit_resume(state, "# Resume\n", record)["valid"])
         del record["entries"][0]["relevance_evidence"]
         self.assertFalse(achievements.audit_resume(state, "# Resume\n", record)["valid"])
         record["entries"] = []
@@ -249,14 +249,16 @@ class AchievementTests(unittest.TestCase):
             self.assertTrue(assessment["achievement_review"]["pending_achievement_ids"])
             self.assertEqual(cs.read_state(path)["search_cases"][0]["phase"],"preparing")
 
-    def test_irrelevant_detail_can_be_omitted_without_discarding_useful_achievement(self):
+    def test_metric_exclusion_requires_specific_owner_choice_not_relevance(self):
         state=interpreted(captured("Implemented retry handling for an invoice importer during a 12 month support rotation."))
         wording="Implemented retry handling for an invoice importer."
         metric={"metric_id":"uninterpreted-1","decision":"omit_irrelevant","fact_ids":[],"claim_scope":"unknown",
                 "relevance_evidence":"The target values importer design; the rotation duration does not establish its quality or technical scope."}
         selection=audit(wording,metrics=[metric])
+        self.assertFalse(achievements.audit_resume(state,wording,selection)["ready"])
+        metric.update(decision="omit_justified",omission_reason="owner_excluded",omission_evidence="Synthetic user excluded this exact rotation-duration detail",omission_source_id="source-user")
         self.assertTrue(achievements.audit_resume(state,wording,selection)["ready"])
-        del metric["relevance_evidence"]
+        del metric["omission_evidence"]
         self.assertFalse(achievements.audit_resume(state,wording,selection)["valid"])
 
     def test_held_metric_disclosure_and_unsupported_added_number_are_not_ready(self):
@@ -370,6 +372,37 @@ class AchievementTests(unittest.TestCase):
             self.assertTrue(result["saved"]);self.assertFalse(result["completed"])
             saved=cs.read_state(path);self.assertEqual(saved["search_cases"][0]["novelty"]["status"],"new")
             self.assertEqual(len(saved["opportunities"]),1)
+
+    def test_confirmed_team_impact_stays_secondary_in_individual_contributor_resume(self):
+        state=interpreted(captured())
+        original="The team reduced incident triage from 48 h to 6 h."
+        state=fact(state,"team-triage",original,"team");state=fact(state,"personal-tooling","Built diagnostic summaries used in incident triage.")
+        state=achievements.capture(state,{"id":"secondary","fact_id":"team-triage","source_id":"source-user","source_locator":"Synthetic older resume, impact section","original_text":original,
+             "metrics":[{"id":"triage","verbatim":"48 h to 6 h","units":["h"],"attribution":"team"}]})
+        state=cs.add_record(state,"achievement_interpretations",{"id":"secondary-meaning","achievement_id":"secondary","version":1,"at":AT,
+             "fields":{"contribution":{"status":"supported","text":"Built diagnostic summaries.","fact_ids":["personal-tooling"]},
+                       "problem":{"status":"supported","text":"Incident triage workflow.","fact_ids":["team-triage"]},
+                       "metric_context":{"status":"supported","text":"Confirmed team triage duration, before and after.","fact_ids":["team-triage"]}}})
+        primary="Implemented retry handling for an invoice importer.";secondary="Built diagnostic summaries; the team reduced incident triage from 48 h to 6 h."
+        record=audit(primary);record["target_role"]="Synthetic individual-contributor role";record["entries"][0]["emphasis"]="primary"
+        record["entries"].append({"achievement_id":"secondary","decision":"qualify","emphasis":"secondary","reason":"Retain meaningful team impact concisely; emphasize implementation in the primary achievement.","rendered_text":secondary,
+             "fact_ids":["personal-tooling","team-triage"],"meaning_fields":["contribution","problem"],"metrics":[{"metric_id":"triage","decision":"qualify","rendered_text":"the team reduced incident triage from 48 h to 6 h","fact_ids":["team-triage"],"claim_scope":"team","scope_phrase":"the team"}]})
+        text="# Resume\n\n"+primary+"\n\n"+secondary
+        self.assertTrue(achievements.audit_resume(state,text,record)["ready"])
+        bad=copy.deepcopy(record);bad["entries"][1].update(decision="omit_irrelevant",rendered_text="",relevance_evidence="Not selected by the individual-contributor template")
+        bad["entries"][1]["metrics"][0].update(decision="omit_irrelevant",rendered_text="")
+        self.assertFalse(achievements.audit_resume(state,"# Resume\n\n"+primary,bad)["ready"])
+
+    def test_shared_fact_does_not_make_distinct_achievements_duplicates(self):
+        state=interpreted(captured());state["facts"][-1]["statement"]="Implemented importer retries and introduced onboarding documentation."
+        state=achievements.capture(state,{"id":"different","fact_id":"raw-fact","source_id":"source-user","source_locator":"Synthetic second bullet","original_text":"Introduced onboarding documentation.","metrics":[]})
+        selection=audit();selection['entries'].append({"achievement_id":"different","decision":"omit_justified","reason":"Claimed shared-provenance duplicate","fact_ids":[],"meaning_fields":[],"metrics":[],"omission_reason":"duplicate","omission_evidence":"Shared source fact","duplicate_of":"achievement-a"})
+        text="Implemented retry handling for an invoice importer."
+        self.assertFalse(achievements.audit_resume(state,text,selection)['ready'])
+        # A genuinely equal source version can point at the one retained paragraph.
+        state=interpreted(captured());original=state['achievement_evidence'][0]
+        state=achievements.capture(state,{"id":"different","fact_id":"raw-fact","source_id":"source-user","source_locator":"Synthetic repeated resume version","original_text":original['original_text'],"metrics":[]})
+        self.assertTrue(achievements.audit_resume(state,text,selection)['ready'])
 
     def test_fresh_bundle_capture_plan_audit_outside_source(self):
         with tempfile.TemporaryDirectory() as directory:

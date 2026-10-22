@@ -2,6 +2,8 @@
 """Optional local career records. Standard library only; no network or sending."""
 
 import argparse
+from contextlib import contextmanager
+import uuid
 import copy
 from datetime import date, datetime, timedelta, timezone
 import json
@@ -1271,6 +1273,62 @@ def transact(path, transform, expected_revision=None):
         lock.unlink()
 
 
+@contextmanager
+def skill_operation(root=None, exclusive=False, recovery=False):
+    """Cooperating installed CLIs hold leases; an updater cannot replace their code."""
+    root = Path(root or Path(__file__).resolve().parents[1]).resolve()
+    if not (root / "BUNDLE.json").is_file() and not exclusive:
+        yield
+        return
+    directory = Path(tempfile.gettempdir()) / ("career-agent-lease-" + hashlib.sha256(str(root).encode()).hexdigest())
+    require(not directory.is_symlink(), "Unsafe operation lease directory")
+    directory.mkdir(mode=0o700, exist_ok=True)
+    gate = directory / "gate.lock"
+    def acquire():
+        try: return os.open(gate, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        except FileExistsError as error: raise Invalid("Skill operation gate is busy; retry after the current operation") from error
+    def live(path):
+        require(not path.is_symlink(), "Unsafe operation lease")
+        row = load_json(path)
+        require(type(row.get("pid")) is int and row["pid"] > 0, "Invalid operation lease")
+        if row.get("interrupted") is True: return False
+        try: os.kill(row["pid"], 0); return True
+        except ProcessLookupError: return False
+        except PermissionError: return True
+    marker = directory / ("update.lock" if exclusive else (str(os.getpid()) + "-" + uuid.uuid4().hex + ".operation"))
+    descriptor = acquire()
+    try:
+        os.close(descriptor)
+        update = directory / "update.lock"
+        if update.exists() or update.is_symlink():
+            require(recovery and exclusive and not live(update), "Update is active or interrupted; finish/recover it before another operation")
+            update.unlink()
+        if exclusive:
+            for old in directory.glob("*.operation"):
+                require(not live(old), "A skill helper is running; update deferred")
+                old.unlink()
+        fd = os.open(marker, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        with os.fdopen(fd, "w") as handle: json.dump({"pid": os.getpid(), "root": str(root)}, handle)
+    finally:
+        gate.unlink()
+    lease = {"retain": False}
+    try: yield lease
+    finally:
+        if exclusive and lease["retain"]:
+            with marker.open("w") as handle:
+                json.dump({"pid": os.getpid(), "root": str(root), "interrupted": True}, handle)
+                handle.flush(); os.fsync(handle.fileno())
+        else: marker.unlink(missing_ok=True)
+
+
+def run_cli(callback):
+    try:
+        with skill_operation(): return callback()
+    except (Invalid, OSError, ValueError) as error:
+        print("Error: " + str(error), file=sys.stderr)
+        return 2
+
+
 def load_json(path):
     return strict_json_loads(Path(path).read_text(encoding="utf-8"))
 
@@ -1397,4 +1455,4 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(run_cli(main))
