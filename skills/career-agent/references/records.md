@@ -23,3 +23,5 @@ Before refreshing views, compare the previous export fingerprint. Preserve an ex
 Include context-access decision/scope/purposes/history and insight provenance, inference/confidence/confirmation in private handoff. Withdrawal blocks future reuse and flags affected external drafts; it does not delete provider history. Exclude private growth from employer-facing exports.
 
 Optional planning records in the private profile/handoff include calendar opt-in/source scope, confirmed timezone/work hours and user-chosen load limits, unknown/fresh/stale availability with checked_at/coverage, proposed slots/buffers and actual successful scheduler IDs. Store minimal planning metadata, not unrelated event contents. Preserve next steps independently of chat memory; never imply the generic ledger itself supplies connectors/background monitoring.
+
+Include search-case batch IDs, initial novelty evidence/registry hashes and coverage errors, compensation provenance, condition assessments, exact form and attempt references, preparation phase and current-view verification. Keep company outreach distinct from advertised vacancies.

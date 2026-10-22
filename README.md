@@ -42,6 +42,8 @@ If an authorized Gmail or compatible mail connector is already available, the ag
 
 ## Research and preparation
 
+“Find suitable opportunities” produces new saved application cases with ready-to-review Markdown packets, not just links. Known exact roles remain revisits. Draft resumes, covers, dossiers and form answers are .md; identical approved material versions are reused. PDF/DOCX conversion waits for a required upload or your explicit request. Undisclosed salary is acceptable with transparent company/market estimates or unknowns; your private floor is used internally. See [search completion](skills/career-agent/references/search-cases.md).
+
 Discovery covers job boards, freelance markets and companies found through product needs, engineering blogs, repositories and technology ecosystems. A company prospect without a verified opening stays separate from a vacancy. Research begins only when you choose; pause stops new lookups.
 
 When available and authorized, local rdrr can extract public pages discovered through the host's search tools. It is optional, does not replace search, and cannot guarantee access to dynamic, PDF or protected content. Friends do not need an author account or service, and the skill never silently installs software. [Research-tool guidance](skills/career-agent/references/research-tools.md) explains fallbacks.

@@ -100,6 +100,11 @@ def view_data(state, workspace, as_of):
                 stage = "Prepared next attempt; prior action recorded"
         elif responses:
             stage = responses[-1]["type"].replace("_", " ")
+        saved_cases = [c for c in state.get("search_cases", []) if c["opportunity_id"] == identifier and c["phase"] == "saved"]
+        if saved_cases and not roots:
+            import career_search
+            assessment = career_search.readiness(state, saved_cases[-1])
+            stage = ("Company outreach prospect: " if role["kind"] == "company_outreach" else "Saved review package: ") + assessment["status"].replace("_", " ")
         guard = cs.reapplication_guard(state, identifier)
         next_action = role.get("next_action", "Reconcile history before reapplying" if guard["requires_review"] else "Choose next step in chat")
         observed = max(role["status_observations"], key=lambda item: cs.timestamp(item["at"]))
@@ -112,7 +117,7 @@ def view_data(state, workspace, as_of):
                   role.get("fit_summary", "Assessment pending"), role.get("pay_summary", "Unknown"), stage,
                   responses[-1]["type"].replace("_", " ") if responses else "No observed response",
                   next_action, max((a["occurred"] for a in sent), default="Unknown / not sent"),
-                  observed["status"] + " / " + observed["at"], role["role_url"], documents]
+                  ("Not an advertised opening" if role["kind"] == "company_outreach" else observed["status"]) + " / " + observed["at"], role["role_url"], documents]
         links = {10: safe_link(role["role_url"], workspace)}
         # A cell can have one hyperlink. All version paths remain readable in the cell/metadata.
         if artifacts:
@@ -271,9 +276,11 @@ def export_snapshot(state_path, workspace, as_of, format="xlsx"):
         exported_at = datetime.now(timezone.utc).isoformat()
         marker = f"GENERATED SNAPSHOT | state revision {state['revision']} | exported {exported_at} | events through {as_of}. Ask the agent for changes; this view does not edit state."
         counts = report["counts"]
-        response_summary = (f"Hiring responses: {report['hiring_response_rate']['numerator']} / {report['hiring_response_rate']['denominator']} sent roles"
-                            if report["hiring_response_rate"]["denominator"] else "Hiring response rate unavailable: no confirmed-sent roles")
-        summary = f"{counts['opportunities']} unique roles | {counts['prepared_roles']} prepared | {counts['sent_roles']} confirmed-sent roles. {response_summary}. History observations and threads are not extra applications."
+        counted_unit = "cases" if counts["company_outreach_cases"] else "roles"
+        response_summary = (f"Hiring responses: {report['hiring_response_rate']['numerator']} / {report['hiring_response_rate']['denominator']} sent {counted_unit}"
+                            if report["hiring_response_rate"]["denominator"] else f"Hiring response rate unavailable: no confirmed-sent {counted_unit}")
+        inventory_label = "unique application cases" if counts["company_outreach_cases"] else "unique roles"
+        summary = f"{counts['opportunities']} {inventory_label} | {counts['prepared_roles']} prepared | {counts['sent_roles']} confirmed-sent {counted_unit}. {response_summary}. History observations and threads are not extra applications."
         meta = [["State revision", str(state["revision"]), "Schema version", str(state["schema_version"]), "Export time", exported_at],
                 ["State SHA-256", digest(state_raw), "State file", str(state_path), "Evidence cutoff", report["evidence_as_of"]],
                 ["View contract", "Generated snapshot; ask the agent for edits", "Manual edits", "Never silently overwritten", "Privacy", "No secrets or full email bodies"], *meta]

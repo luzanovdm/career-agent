@@ -1,7 +1,7 @@
 # Application packets
 
 Use [the interaction contract](interaction.md) for every intake choice, factual clarification or preference: native questionnaires are required when applicable in the current host/mode; keep conclusions in chat and avoid duplicate prose questions.
-Prepare only for the selected exact opportunity. Recheck current source evidence where browsing is authorized. If it is unavailable, label the packet's status unverified and preserve unresolved checks. Read the confirmed fact bank and disclosure restrictions before drafting.
+Prepare for each suitable new exact case selected by the authorized search scope; finding cases includes packet preparation by default under [the search completion contract](search-cases.md). A standalone packet request still targets its selected exact opportunity. Recheck current source evidence where browsing is authorized. If it is unavailable, label the packet's status unverified and preserve unresolved checks. Read the confirmed fact bank and disclosure restrictions before drafting.
 
 ## Packet contents
 
@@ -10,6 +10,8 @@ Prepare only for the selected exact opportunity. Recheck current source evidence
 3. Form-field inventory from the actual observed form: exact label, type, choices, requiredness, help/consent text, limits, source and observation date. Never present guessed fields as observed. Without form access, provide a clearly labeled provisional checklist. Do not create accounts or accept terms to inspect a form.
 4. Proposed answers, reusable cache references and new unresolved questions. A mandatory salary field does not authorize disclosure of the private floor. Ask for or reuse the user-approved desired answer with its exact currency, gross/net and period.
 5. Private source-backed fit assessment and unresolved items, including critical eligibility, unknown freshness, noncritical gaps and disclosure concerns.
+
+All new resume, cover, dossier and form-answer drafts are .md only. Do not generate per-vacancy TXT/PDF/DOCX; render upload formats only for an actual required upload or explicit user request. Inspect final Markdown links and actual URL fields; private local paths are not public resume URLs.
 
 Store general reusable resumes once in the central private material library. Reuse an unchanged version/hash without generating another PDF. Create a new immutable version only for a real content/format change, and defer PDF generation until a reviewed deliverable or form needs it. Organize Applications by company, exact vacancy and distinct application attempt with readable names plus stable IDs. Each attempt pins chosen immutable material versions/hashes using relative symlinks or portable reference files; never a moving “latest” CV. Keep letters, observed answers, evidence and correspondence scoped to the attempt; share vacancy research/interview context at vacancy level. See [material storage](materials.md).
 

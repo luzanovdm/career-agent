@@ -47,8 +47,10 @@ Capture incrementally after direction selection. Every entry has a value, `hard`
 - Salary floor and goal separately: amount, currency, gross/net, hourly/monthly/annual period and working-hours basis where relevant. Do not compare amounts with mismatched units or guess exchange rates.
 - Optional temporary-income target, deadline and contract/short-project scope.
 
-Unknown is neither pass nor fail. Clarify essential unknowns before an action depending on them. Keep private salary floors out of external materials. A required field does not authorize disclosure of the floor: ask for or reuse the user-approved desired answer, with currency, gross/net and period. End by asking whether the user wants to start discovery, refine the profile or pause.
+Before search, reuse current confirmed income/hours/employment preferences and ask only material missing ones through a native form. Preserve explicit company exclusions. Undisclosed pay is acceptable; use sourced comparable company/market evidence in the actual hiring geography, label estimates and unknowns, and never invent an employer promise. Unknown is neither pass nor fail. Clarify essential unknowns before an action depending on them. Keep private salary floors out of external materials. A required field does not authorize disclosure of the floor: ask for or reuse the user-approved desired answer, with currency, gross/net and period. End by asking whether the user wants to start discovery, refine the profile or pause.
 
 Offer to import existing application history from a list/table/file using [history import](history-import.md). Connecting mail is optional and separate from profile intake.
 
 Offer optional [scoped other-chat/memory enrichment](context-enrichment.md) once without blocking intake; skip is a complete answer. Keep suggested strengths separate from verified career facts and all growth areas private for interview preparation.
+
+Preserve exclusions at their confirmed scope: company-wide exclusions persist across sources; a restriction on a sending channel does not automatically ban discovering public evidence through that channel. Never turn one user's channel choice into a universal default.

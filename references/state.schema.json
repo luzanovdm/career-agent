@@ -166,6 +166,12 @@
       "items": {
         "$ref": "#/$defs/context_insight"
       }
+    },
+    "search_cases": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/search_case"
+      }
     }
   },
   "required": [
@@ -344,7 +350,8 @@
         "kind": {
           "enum": [
             "vacancy",
-            "contract_project"
+            "contract_project",
+            "company_outreach"
           ]
         },
         "source_ids": {
@@ -385,6 +392,49 @@
             "additionalProperties": true
           },
           "minItems": 1
+        },
+        "identity_aliases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "outreach_need": {
+          "type": "string",
+          "minLength": 1
+        },
+        "contact_route": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "minLength": 1
+            },
+            "source_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "checked_at": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "required": [
+            "url",
+            "source_id",
+            "checked_at"
+          ],
+          "additionalProperties": false
+        },
+        "hiring_geography": {
+          "type": "string",
+          "minLength": 1
+        },
+        "level": {
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -595,6 +645,26 @@
           "items": {
             "type": "string"
           }
+        },
+        "answer_state": {
+          "enum": [
+            "confirmed",
+            "unknown",
+            "not_applicable",
+            "consent_pending"
+          ]
+        },
+        "answer": {},
+        "confirmation_evidence": {
+          "type": "string",
+          "minLength": 1
+        },
+        "answer_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "answer_query": {
+          "type": "object"
         }
       },
       "required": [
@@ -1609,6 +1679,17 @@
               "$ref": "#/$defs/money"
             }
           ]
+        },
+        "income_policy": {
+          "$ref": "#/$defs/income_policy"
+        },
+        "excluded_companies": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
         }
       },
       "required": [
@@ -2320,6 +2401,573 @@
         "basis",
         "confidence",
         "status"
+      ],
+      "additionalProperties": false
+    },
+    "income_policy": {
+      "type": "object",
+      "properties": {
+        "confirmed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "confirmation_evidence": {
+          "type": "string",
+          "minLength": 1
+        },
+        "employment_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "weekly_hours": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 168
+        },
+        "floor_disposition": {
+          "enum": [
+            "stated",
+            "no_floor"
+          ]
+        },
+        "goal_disposition": {
+          "enum": [
+            "stated",
+            "no_goal"
+          ]
+        },
+        "unknown_salary": {
+          "enum": [
+            "include",
+            "exclude"
+          ]
+        },
+        "case_types": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "vacancy",
+              "contract_project",
+              "company_outreach"
+            ]
+          },
+          "uniqueItems": true,
+          "minItems": 1
+        }
+      },
+      "required": [
+        "confirmed_at",
+        "confirmation_evidence",
+        "employment_type",
+        "weekly_hours",
+        "floor_disposition",
+        "goal_disposition",
+        "case_types"
+      ],
+      "additionalProperties": false
+    },
+    "pay_observation": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "exact",
+            "range",
+            "lower_bound",
+            "unpublished"
+          ]
+        },
+        "employment_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "weekly_hours": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 168
+        },
+        "currency": {
+          "type": "string",
+          "minLength": 1
+        },
+        "basis": {
+          "enum": [
+            "gross",
+            "net",
+            "unknown"
+          ]
+        },
+        "period": {
+          "enum": [
+            "hour",
+            "month",
+            "year"
+          ]
+        },
+        "minimum": {
+          "type": "number",
+          "minimum": 0
+        },
+        "maximum": {
+          "type": "number",
+          "minimum": 0
+        },
+        "source_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "checked_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "evidence_type": {
+          "enum": [
+            "employer_confirmed",
+            "company_comparable",
+            "market_estimate"
+          ]
+        },
+        "geography": {
+          "type": "string",
+          "minLength": 1
+        },
+        "level": {
+          "type": "string",
+          "minLength": 1
+        },
+        "comparable_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence": {
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "compensation": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "exact",
+            "range",
+            "lower_bound",
+            "unpublished"
+          ]
+        },
+        "employment_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "weekly_hours": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 168
+        },
+        "currency": {
+          "type": "string",
+          "minLength": 1
+        },
+        "basis": {
+          "enum": [
+            "gross",
+            "net",
+            "unknown"
+          ]
+        },
+        "period": {
+          "enum": [
+            "hour",
+            "month",
+            "year"
+          ]
+        },
+        "minimum": {
+          "type": "number",
+          "minimum": 0
+        },
+        "maximum": {
+          "type": "number",
+          "minimum": 0
+        },
+        "source_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "checked_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "evidence_type": {
+          "enum": [
+            "employer_confirmed",
+            "company_comparable",
+            "market_estimate"
+          ]
+        },
+        "geography": {
+          "type": "string",
+          "minLength": 1
+        },
+        "level": {
+          "type": "string",
+          "minLength": 1
+        },
+        "comparable_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence": {
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        "estimates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pay_observation"
+          }
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "case_condition": {
+      "type": "object",
+      "properties": {
+        "meaning": {
+          "type": "string",
+          "minLength": 1
+        },
+        "outcome": {
+          "enum": [
+            "pass",
+            "fail",
+            "unknown"
+          ]
+        },
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_kind": {
+          "enum": [
+            "explicit_requirement",
+            "observed_task",
+            "inference",
+            "posting_language"
+          ]
+        },
+        "priority": {
+          "enum": [
+            "hard",
+            "preference",
+            "negotiable"
+          ]
+        }
+      },
+      "required": [
+        "meaning",
+        "outcome",
+        "source_ids",
+        "evidence",
+        "evidence_kind"
+      ],
+      "additionalProperties": false
+    },
+    "markdown_document": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "language": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fact_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "text",
+        "language",
+        "fact_ids",
+        "source_ids"
+      ],
+      "additionalProperties": false
+    },
+    "search_case_request": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "batch_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "company": {
+          "$ref": "#/$defs/company"
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/source"
+          },
+          "minItems": 1
+        },
+        "opportunity": {
+          "$ref": "#/$defs/opportunity"
+        },
+        "form": {
+          "$ref": "#/$defs/form"
+        },
+        "compensation": {
+          "$ref": "#/$defs/compensation"
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/case_condition"
+          }
+        },
+        "documents": {
+          "type": "object",
+          "properties": {
+            "resume": {
+              "$ref": "#/$defs/markdown_document"
+            },
+            "cover-letter": {
+              "$ref": "#/$defs/markdown_document"
+            },
+            "dossier": {
+              "$ref": "#/$defs/markdown_document"
+            },
+            "form-answers": {
+              "$ref": "#/$defs/markdown_document"
+            }
+          },
+          "required": [
+            "cover-letter",
+            "dossier",
+            "form-answers"
+          ],
+          "additionalProperties": false
+        },
+        "resume_reference": {
+          "type": "object",
+          "properties": {
+            "material_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "confirmation_evidence": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "material_id",
+            "confirmation_evidence"
+          ],
+          "additionalProperties": false
+        },
+        "registry_paths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "fit_summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requested_new": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "id",
+        "batch_id",
+        "at",
+        "company",
+        "sources",
+        "opportunity",
+        "form",
+        "compensation",
+        "conditions",
+        "documents",
+        "fit_summary",
+        "requested_new"
+      ],
+      "additionalProperties": false
+    },
+    "search_case": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "batch_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "opportunity_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "request_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "novelty": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "enum": [
+                "new",
+                "known",
+                "unknown"
+              ]
+            },
+            "matches": {
+              "type": "array"
+            },
+            "coverage": {
+              "type": "array"
+            },
+            "errors": {
+              "type": "array"
+            },
+            "uncertain_company_contacts": {
+              "type": "array"
+            }
+          },
+          "required": [
+            "status",
+            "matches",
+            "coverage",
+            "errors"
+          ],
+          "additionalProperties": false
+        },
+        "phase": {
+          "enum": [
+            "preparing",
+            "saved"
+          ]
+        },
+        "form_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "compensation": {
+          "$ref": "#/$defs/compensation"
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/case_condition"
+          }
+        },
+        "registry_paths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "attempt_id": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        },
+        "reference_resume_id": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        },
+        "requested_new": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "id",
+        "batch_id",
+        "opportunity_id",
+        "at",
+        "request_sha256",
+        "novelty",
+        "phase",
+        "form_id",
+        "compensation",
+        "conditions",
+        "registry_paths",
+        "attempt_id",
+        "reference_resume_id",
+        "requested_new"
       ],
       "additionalProperties": false
     }

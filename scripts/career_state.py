@@ -18,9 +18,9 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 COLLECTIONS = (
     "sources", "companies", "opportunities", "facts", "suggestions", "artifacts",
     "attempts", "responses", "coverage", "answers", "dossier", "cases",
-    "interview_prep", "referrals", "referral_drafts", "contact_events", "forms", "history_imports", "materials", "application_attempts", "credentials", "rehearsals", "context_insights",
+    "interview_prep", "referrals", "referral_drafts", "contact_events", "forms", "history_imports", "materials", "application_attempts", "credentials", "rehearsals", "context_insights", "search_cases",
 )
-OPTIONAL_COLLECTIONS = {"context_insights"}
+OPTIONAL_COLLECTIONS = {"context_insights", "search_cases"}
 RESPONSE_TYPES = {"auto_receipt", "human_reply", "interview", "offer", "rejection",
                   "bounce", "withdrawal", "rejected_before_application"}
 TRACKING_KEYS = {"fbclid", "gclid", "msclkid"}
@@ -344,7 +344,7 @@ def validate(state):
     for row in state["opportunities"]:
         _text(row, "company_id", "title", "identity")
         require(row["company_id"] in index["companies"], "Unknown company")
-        _one(row, "kind", {"vacancy", "contract_project"})
+        _one(row, "kind", {"vacancy", "contract_project", "company_outreach"})
         _refs(row, "source_ids", index["sources"], True)
         role_url = (row["company_id"], canonical_url(row["role_url"]))
         require(role_url not in role_urls, "Duplicate exact role URL; consolidate sources")
@@ -546,6 +546,7 @@ def validate(state):
     validate_imports(state)
     validate_materials_and_credentials(state, index)
     validate_context(state, index)
+    validate_search_cases(state, index)
     return state
 
 
@@ -684,6 +685,8 @@ def stats(state, as_of, wait_days=7, evidence_as_of=None):
     return {
         "as_of": as_of, "evidence_as_of": evidence_at.isoformat(), "wait_days": wait_days,
         "counts": {"companies": len(state["companies"]), "opportunities": len(state["opportunities"]),
+                   "advertised_opportunities": sum(r["kind"] != "company_outreach" for r in state["opportunities"]),
+                   "company_outreach_cases": sum(r["kind"] == "company_outreach" for r in state["opportunities"]),
                    "prepared_roles": len(prepared), "sent_roles": len(sent), "attempt_records": len(attempts),
                    "unresolved_submit_roles": len(unresolved),
                    **{kind + "_roles": len(roles) for kind, roles in sorted(roles_by_response.items())},
@@ -1152,6 +1155,38 @@ def validate_context(state, index):
                 _refs(record, "context_insight_ids", insights)
                 require(collection == "artifacts" and private_artifact(record),
                         "Raw context/growth insights belong only in private preparation artifacts")
+
+
+def validate_search_cases(state, index):
+    policy = state["search_config"].get("income_policy")
+    if policy:
+        timestamp(policy["confirmed_at"])
+    for role in state["opportunities"]:
+        if role["kind"] == "company_outreach":
+            _text(role, "outreach_need")
+            route = role.get("contact_route", {})
+            canonical_url(route.get("url"))
+            require(route.get("source_id") in role["source_ids"], "Outreach needs a source-backed contact route")
+            timestamp(route.get("checked_at"))
+            require(all(o["status"] == "unknown" for o in role["status_observations"]), "Speculative outreach is not an advertised opening")
+    for case in state.get("search_cases", []):
+        role = index["opportunities"].get(case["opportunity_id"])
+        require(role is not None, "Search case needs an exact opportunity")
+        form = index["forms"].get(case["form_id"])
+        require(form and form["opportunity_id"] == role["id"], "Case form must belong to the exact role")
+        timestamp(case["at"])
+        for item in [case["compensation"], *case["compensation"].get("estimates", [])]:
+            if item.get("source_id"):
+                require(item["source_id"] in index["sources"], "Pay evidence needs a recorded source")
+                timestamp(item.get("checked_at"))
+        meanings = set()
+        for condition in case["conditions"]:
+            require(condition["meaning"] not in meanings, "Duplicate constraint assessment")
+            meanings.add(condition["meaning"])
+            _refs(condition, "source_ids", index["sources"], condition["outcome"] != "unknown")
+        if case["phase"] == "saved":
+            attempt = index["application_attempts"].get(case["attempt_id"])
+            require(attempt and attempt["opportunity_id"] == role["id"], "Saved case requires its exact prepared attempt")
 
 
 def read_state(path):
