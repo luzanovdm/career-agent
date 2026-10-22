@@ -1,5 +1,7 @@
 # Campaign tracking
 
+On an explicit stop, stop workers and record paused/revoked control immediately when the host can still write; distinguish pause from stop but require explicit resume for both. An abrupt kill/archive may prevent all cleanup. Never claim that cleanup always happened. At the next invocation reconcile the persisted checkpoint: a new context, expiry or known interruption revokes effective research permission, while read-only inspection remains available. The helper's `reconcile-session` is a safe pause operation, never a restart. An explicit resume creates a fresh bounded run with the retained scope, not a permanent lock or repeated per-step approval loop. Propagating cancellation and supplying fresh invocation identity depend on host support; checkpoint checks cannot observe a kill while the process is absent.
+
 Use [the interaction contract](interaction.md) for every intake choice, factual clarification or preference: native questionnaires are required when applicable in the current host/mode; keep conclusions in chat and avoid duplicate prose questions.
 Keep separate records for companies, exact opportunities, artifact versions, outreach/application attempts and response events. Each delivery event references one exact opportunity and may reference its distinct application-attempt record and pinned materials. Repeated applications have separate stable attempt IDs and folders, never overwritten. See [material storage](materials.md). A sent status on one role never applies to another role at the same company.
 
@@ -12,6 +14,8 @@ Response types: auto receipt, human reply, interview, offer, employer rejection,
 Record coverage per exact opportunity with monitored channels, `complete`/`partial`/`unknown`, checked-at time and covered-through time. Absence of a response is silence only when a configured wait window has elapsed and complete coverage reaches the report's as-of time. Unknown/partial coverage is “unobserved”, never silence. Associate delivery responses with exact send attempts. A bounce is a known delivery problem, not silence, for that attempt; an old bounce must not suppress observation after a later confirmed resend. Keep historical bounce totals separately. A receipt can be followed by no hiring response; distinguish both in prose. Never claim inbox access or comprehensive coverage the host does not have.
 
 ## Reports
+
+Keep fit assessment separate from user decisions, application events and job-open observations. Write canonical `opportunities.fit_assessment` (pending/assessed, summary, reason, date, source IDs). Existing `fit_summary`, `assessment` and `assessment_reason` remain readable compatibility inputs. Export the saved assessment rather than substituting “Assessment pending”; only genuine missing/pending assessments use that label. Assistant filtering is not a user decline, a fit conclusion is not an employer rejection, and neither establishes current vacancy status.
 
 Ask the user for report frequency and results-only versus detailed reporting. Store the preference. Without scheduling capability, prepare on demand in conversation; do not promise background reports. Pause stops research; preserve tracking and requested reports. Resume research requires an explicit user choice.
 

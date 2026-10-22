@@ -116,7 +116,7 @@ def view_data(state, workspace, as_of):
         if pinned:
             documents = "; ".join(f"{a['label']} / {pin['slot']} v{pin['version']}: {material['path']}" for a, pin, material in pinned)
         values = [companies[role["company_id"]]["name"], role["title"], role.get("direction", "Not selected"),
-                  role.get("fit_summary", "Assessment pending"), role.get("pay_summary", "Unknown"), stage,
+                  cs.fit_display(role), role.get("pay_summary", "Unknown"), stage,
                   responses[-1]["type"].replace("_", " ") if responses else "No observed response",
                   next_action, max((a["occurred"] for a in sent), default="Unknown / not sent"),
                   ("Not an advertised opening" if role["kind"] == "company_outreach" else observed["status"]) + " / " + observed["at"], role["role_url"], documents]

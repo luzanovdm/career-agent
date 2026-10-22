@@ -12,6 +12,7 @@ from test_state import ROOT, AT, LATER, base
 sys.path.insert(0, str(ROOT / "scripts"))
 import career_search as search
 cs = search.cs
+from workflow_fixtures import setup_decisions, reviewed, baseline_capture, baseline_audit
 
 
 def configured():
@@ -20,7 +21,8 @@ def configured():
         "salary_goal": {"amount": 80000, "currency": "USD", "basis": "gross", "period": "year"},
         "income_policy": {"confirmed_at": AT, "confirmation_evidence": "Synthetic confirmed preferences", "employment_type": "full_time", "weekly_hours": 40,
             "floor_disposition": "stated", "goal_disposition": "stated", "case_types": ["vacancy", "contract_project", "company_outreach"]}}
-    return state
+    state["search_config"]["search_setup"] = setup_decisions()
+    return baseline_capture(state)
 
 
 def pay(**changes):
@@ -33,6 +35,8 @@ def request(**changes):
     source = copy.deepcopy(base()["sources"][0]); source["locator"] = role["role_url"]; source["id"] = "source-new"
     role["source_ids"] = ["source-new"]; role["status_observations"][0]["source_id"] = "source-new"
     docs = {slot: {"text": "# " + slot + "\n\nSupported synthetic importer work.\n", "language": "English", "fact_ids": ["fact-a"], "source_ids": ["source-user"]} for slot in search.SLOTS}
+    docs["resume"]["text"] = "# Resume\n\n" + configured()["facts"][0]["statement"]
+    docs["resume"]["adaptation_audit"] = baseline_audit(configured(), docs["resume"]["text"])
     return {"id": "case-a", "batch_id": "search-a", "requested_new": 1, "at": AT, "company": copy.deepcopy(base()["companies"][0]), "sources": [source], "opportunity": role,
             "form": {"id": "new-form", "opportunity_id": role["id"], "status": "observed", "at": AT, "source_ids": ["source-new"],
                      "fields": [{"id": "name", "label": "Name", "control": "text", "help_text": "", "choices": [], "required": True,
@@ -180,9 +184,11 @@ class SearchCaseTests(unittest.TestCase):
             workspace, path = self.fixture(directory); item = request()
             original = Path(directory) / "approved.pdf"; original.write_bytes(b"Synthetic immutable original bytes")
             metadata = {"id": "approved-resume", "family_id": "approved", "version": 1, "kind": "resume", "language": "English", "visibility": "external",
-                        "at": AT, "fact_ids": ["fact-a"], "source_ids": ["source-user"]}
+                        "at": AT, "fact_ids": ["fact-a"], "source_ids": ["source-user"],
+                        "adaptation_audit": item["documents"]["resume"]["adaptation_audit"], "extracted_text": item["documents"]["resume"]["text"]}
             state = search.cm.register_material(path, workspace, metadata, original, 0)
-            item["documents"].pop("resume"); item["resume_reference"] = {"material_id": "approved-resume", "confirmation_evidence": "Synthetic approved unchanged version"}
+            resume_doc = item["documents"].pop("resume"); item["resume_reference"] = {"material_id": "approved-resume", "sha256": state["materials"][0]["sha256"],
+                "adaptation_audit": resume_doc["adaptation_audit"], "extracted_text": resume_doc["text"], "confirmation_evidence": "Synthetic approved unchanged version"}
             first = search.prepare_case(path, workspace, item, state["revision"]); self.assertTrue(first["completed"])
             raw_objects = sorted(p.name for p in (workspace / "Materials/objects").iterdir())
             state = cs.read_state(path); result = search.prepare_case(path, workspace, item, state["revision"])

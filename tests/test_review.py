@@ -97,7 +97,7 @@ class ReviewTests(unittest.TestCase):
                 cs.add_record(state, "artifacts", packet)
 
     def test_control_flags_cannot_override_latest_pause_or_scope(self):
-        state = cs.control_change(base(), "start", "Synthetic explicit start", "Approved scope", True)
+        state = cs.control_change(base(), "start", "Synthetic explicit start", "Approved scope", True, "synthetic-run")
         state = cs.control_change(state, "pause", "Synthetic pause", "", True)
         state["control"]["paused"] = False
         self.assertFalse(cs.research_allowed(state))

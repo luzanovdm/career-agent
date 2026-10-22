@@ -273,7 +273,7 @@ def validate(state):
     authorized, paused, scope = False, True, ""
     previous_at = None
     for decision in control["history"]:
-        _one(decision, "action", {"start", "pause", "resume"})
+        _one(decision, "action", {"start", "pause", "resume", "stop", "reconcile"})
         _text(decision, "evidence")
         when = timestamp(decision["at"])
         require(previous_at is None or when >= previous_at, "Research decisions are out of order")
@@ -284,10 +284,17 @@ def validate(state):
         else:
             require(decision["scope"] == scope, "Pause/resume must preserve the authorized scope")
             if decision["action"] == "resume":
-                require(authorized, "Resume requires an earlier start decision")
-                paused = False
+                require(bool(scope), "Resume requires an earlier start decision")
+                authorized, paused = True, False
             else:
                 paused = True
+                if decision["action"] in {"stop", "reconcile"}: authorized = False
+    if "run" in control:
+        run = control["run"]
+        require(timestamp(run["expires_at"]) > timestamp(run["started_at"]), "Research run needs a bounded positive lifetime")
+        require(bool(control["history"]), "Research run needs decision provenance")
+        require(control["history"][-1].get("run") == run, "Research run contradicts latest decision checkpoint")
+        require((run["status"] == "active") == (authorized and not paused), "Research run status contradicts control")
     require((control["authorized"], control["paused"], control["scope"]) ==
             (authorized, paused, scope), "Current research flags contradict decision history")
     profile = state.get("profile", {})
@@ -555,6 +562,7 @@ def validate(state):
     validate_context(state, index)
     validate_search_cases(state, index)
     validate_achievements(state, index)
+    validate_workflow(state, index)
     return state
 
 
@@ -635,12 +643,77 @@ def lookup_answer(state, query, at):
             timestamp(row["valid_from"]) <= when < timestamp(row["valid_until"])]
 
 
-def research_allowed(state):
+def fit_assessment(role):
+    """One read contract; fit never changes owner decisions, delivery or opening status."""
+    canonical = role.get("fit_assessment")
+    if isinstance(canonical, dict):
+        if canonical.get("state") == "pending": return {"state": "pending", "summary": "Assessment pending", "reason": "", "origin": "canonical"}
+        summary, reason = canonical.get("summary", ""), canonical.get("reason", "")
+        if isinstance(summary, str) and summary.strip(): return {**canonical, "state": "assessed", "origin": "canonical"}
+    legacy = role.get("assessment")
+    summary = role.get("fit_summary") or (legacy if isinstance(legacy, str) else "")
+    reason = role.get("assessment_reason") or role.get("fit_reason") or ""
+    if isinstance(legacy, dict):
+        summary = summary or legacy.get("summary") or legacy.get("assessment") or legacy.get("conclusion") or ""
+        reason = reason or legacy.get("reason") or ""
+    summary = summary if isinstance(summary, str) and summary.strip() else ""
+    reason = reason if isinstance(reason, str) and reason.strip() else ""
+    return {"state": "assessed" if summary or reason else "pending", "summary": summary or (reason if reason else "Assessment pending"),
+            "reason": reason, "origin": "legacy" if summary or reason else "missing"}
+
+
+def fit_display(role):
+    row = fit_assessment(role)
+    return row["summary"] + (" — " + row["reason"] if row["reason"] and row["reason"] != row["summary"] else "")
+
+
+SETUP_KEYS = ("target", "compensation", "schedule", "other_constraints")
+
+
+def search_prerequisites(state):
+    """Missing is not a preference; reuse explicit decisions instead of asking again."""
+    setup = state["search_config"].get("search_setup", {})
+    missing = [key for key in SETUP_KEYS if setup.get(key, {}).get("disposition", "pending") == "pending"]
+    return {"ready": not missing, "missing": missing, "decisions": copy.deepcopy(setup)}
+
+
+def validate_workflow(state, index):
+    for decision in state["search_config"].get("search_setup", {}).values():
+        _text(decision, "evidence")
+        if decision["disposition"] == "confirmed": require(decision["value"] not in (None, "", [], {}), "Confirmed search decision needs its actual value")
+    review = state["profile"].get("evidence_review")
+    if review:
+        _refs(review, "source_ids", index["sources"])
+        seen = set()
+        for item in review["items"]:
+            require(item["fact_id"] in index["facts"] and item["fact_id"] not in seen, "Source review needs distinct existing facts")
+            seen.add(item["fact_id"])
+            for identifier in item["achievement_ids"]:
+                require(identifier in index["achievement_evidence"] and index["achievement_evidence"][identifier]["fact_id"] == item["fact_id"], "Reviewed achievement must retain its source fact")
+            require(bool(item["achievement_ids"]) == (item["kind"] == "achievement"), "Classify achievements explicitly and capture their original evidence")
+    for role in state["opportunities"]:
+        if "fit_assessment" in role:
+            _refs(role["fit_assessment"], "source_ids", index["sources"])
+            if role["fit_assessment"]["state"] == "assessed": _text(role["fit_assessment"], "summary")
+
+
+def research_status(state, context_id=None, at=None):
     try:
         validate(state)
-    except (Invalid, KeyError, TypeError, ValueError):
-        return False
-    return state["control"]["authorized"] and not state["control"]["paused"]
+    except Invalid as error:
+        return {"allowed": False, "scope": "", "reasons": ["Invalid control/state: " + str(error)]}
+    control, reasons = state["control"], []
+    run = control.get("run")
+    if not control["authorized"] or control["paused"]: reasons.append("Research is paused or revoked")
+    if not context_id or not run or run["context_id"] != context_id: reasons.append("Reconcile this new invocation; stored authorization is not fresh permission")
+    elif timestamp(at or utcnow()) >= timestamp(run["expires_at"]): reasons.append("Research run expired; explicit resume required")
+    setup = search_prerequisites(state)
+    if not setup["ready"]: reasons.append("Search intake decisions missing: " + ", ".join(setup["missing"]))
+    return {"allowed": not reasons, "scope": control["scope"], "reasons": reasons, "prerequisites": setup}
+
+
+def research_allowed(state, context_id=None, at=None):
+    return research_status(state, context_id, at)["allowed"]
 
 
 def action_time(row, attempts):
@@ -1333,22 +1406,46 @@ def load_json(path):
     return strict_json_loads(Path(path).read_text(encoding="utf-8"))
 
 
-def control_change(state, action, evidence, scope, confirmed):
+def control_change(state, action, evidence, scope, confirmed, context_id=None, at=None, expires_at=None):
+    from datetime import timedelta
     validate(state)
-    require(action in {"start", "pause", "resume"}, "Unknown control action")
+    require(action in {"start", "pause", "resume", "stop"}, "Unknown control action")
     require(confirmed, "Attest an actual explicit user decision with --user-confirmed")
     require(bool(evidence.strip()), "User decision evidence required")
     candidate = copy.deepcopy(state)
     control = candidate["control"]
-    if action == "start":
-        require(bool(scope.strip()), "Starting research needs a scope")
-        control.update(authorized=True, paused=False, scope=scope)
-    elif action == "resume":
-        require(control["authorized"] and control["scope"], "Start research before resuming")
-        control["paused"] = False
+    when = at or utcnow()
+    if action in {"start", "resume"}:
+        require(context_id and context_id.strip(), "A fresh current-invocation context ID is required")
+        if action == "start": require(bool(scope.strip()), "Starting research needs a scope")
+        else: require(bool(control["scope"]), "Start research before resuming")
+        control.update(authorized=True, paused=False, scope=scope if action == "start" else control["scope"])
+        until = expires_at or (timestamp(when) + timedelta(hours=4)).isoformat()
+        require(timestamp(until) > timestamp(when), "Research run must expire after its start")
+        control["run"] = {"context_id": context_id, "started_at": when, "expires_at": until, "status": "active"}
     else:
         control["paused"] = True
-    control["history"].append({"action": action, "evidence": evidence, "at": utcnow(), "scope": control["scope"]})
+        if action == "stop": control["authorized"] = False
+        if "run" in control: control["run"]["status"] = "revoked" if action == "stop" else "paused"
+    decision = {"action": action, "evidence": evidence, "at": when, "scope": control["scope"]}
+    if "run" in control: decision["run"] = copy.deepcopy(control["run"])
+    control["history"].append(decision)
+    return validate(candidate)
+
+
+def reconcile_session(state, context_id, evidence, at=None, interrupted=False):
+    """Safe checkpoint reconciliation never grants permission or requires user confirmation."""
+    validate(state)
+    require(bool(context_id and context_id.strip()) and bool(evidence.strip()), "Current context and reconciliation reason required")
+    control = state["control"]; run = control.get("run"); when = at or utcnow()
+    if not control["authorized"] or control["paused"]: return state
+    if not interrupted and run and run["context_id"] == context_id and timestamp(when) < timestamp(run["expires_at"]): return state
+    candidate = copy.deepcopy(state); control = candidate["control"]
+    control.update(authorized=False, paused=True)
+    if "run" in control: control["run"]["status"] = "interrupted"
+    decision = {"action": "reconcile", "evidence": evidence, "at": when, "scope": control["scope"]}
+    if "run" in control: decision["run"] = copy.deepcopy(control["run"])
+    control["history"].append(decision)
     return validate(candidate)
 
 
@@ -1359,7 +1456,7 @@ def main(argv=None):
     init.add_argument("state")
     workspace_init = sub.add_parser("init-workspace", help="Agent initializes the user-chosen private workspace")
     workspace_init.add_argument("state", help="Private workspace directory")
-    for name in ("validate", "stats", "research-check", "put", "answer-get", "control", "settings", "review-update", "history-preview", "history-apply", "reapply-check"):
+    for name in ("validate", "stats", "research-check", "put", "answer-get", "control", "settings", "review-update", "history-preview", "history-apply", "reapply-check", "reconcile-session"):
         command = sub.add_parser(name)
         command.add_argument("state")
         if name == "stats":
@@ -1386,10 +1483,19 @@ def main(argv=None):
             command.add_argument("record", help="Normalized history rows prepared from supplied text/table/file")
         elif name == "reapply-check":
             command.add_argument("opportunity_id")
+        elif name in {"research-check", "reconcile-session"}:
+            command.add_argument("--context-id", required=name == "reconcile-session")
+            command.add_argument("--at")
+            if name == "reconcile-session":
+                command.add_argument("--evidence", required=True)
+                command.add_argument("--expected-revision", type=int, required=True)
+                command.add_argument("--interrupted", action="store_true")
         elif name == "control":
-            command.add_argument("action", choices=("start", "pause", "resume"))
+            command.add_argument("action", choices=("start", "pause", "resume", "stop"))
             command.add_argument("--evidence", required=True)
             command.add_argument("--scope", default="")
+            command.add_argument("--context-id")
+            command.add_argument("--expires-at")
             command.add_argument("--user-confirmed", action="store_true")
     args = parser.parse_args(argv)
     try:
@@ -1403,7 +1509,7 @@ def main(argv=None):
                 json.dump(new_state(), handle, indent=2)
                 handle.write("\n")
             result = {"created": str(path), "research": "paused"}
-        elif args.command in {"put", "settings", "control", "review-update", "history-apply"}:
+        elif args.command in {"put", "settings", "control", "review-update", "history-apply", "reconcile-session"}:
             if args.command == "put":
                 row = load_json(args.record)
                 transform = lambda state: add_record(state, args.collection, row)
@@ -1425,9 +1531,11 @@ def main(argv=None):
                     transform = lambda state: reviewed_update(state, request, args.reason)
                 else:
                     transform = lambda state: apply_history(state, request, args.reason)
+            elif args.command == "reconcile-session":
+                transform = lambda state: reconcile_session(state, args.context_id, args.evidence, args.at, args.interrupted)
             else:
                 transform = lambda state: control_change(state, args.action, args.evidence,
-                                                        args.scope, args.user_confirmed)
+                                                        args.scope, args.user_confirmed, args.context_id, expires_at=args.expires_at)
             updated = transact(args.state, transform, getattr(args, "expected_revision", None))
             result = {"revision": updated["revision"], "valid": True}
         else:
@@ -1441,8 +1549,8 @@ def main(argv=None):
             elif args.command == "answer-get":
                 result = lookup_answer(state, load_json(args.query), args.at)
             elif args.command == "research-check":
-                allowed = research_allowed(state)
-                result = {"allowed": allowed, "scope": state["control"]["scope"]}
+                result = research_status(state, args.context_id, args.at)
+                allowed = result["allowed"]
                 print(json.dumps(result, indent=2))
                 return 0 if allowed else 3
             else:

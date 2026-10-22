@@ -39,6 +39,10 @@ Example with synthetic evidence: “Implemented retry handling for Northstar Dem
 
 ## Separate search configuration
 
+Before adaptation, register every available career document/statement as career evidence (`sources.purpose: career_evidence` where appropriate), preserve source locators and extract accomplishments losslessly. Maintain the extraction ledger described in [achievement adaptation](achievement-adaptation.md), even for sparse profiles. Classify background and credentials explicitly rather than silently treating every source as having no achievements. Group only unresolved interpretation questions that affect the chosen direction, reuse recorded dispositions, and save provisional work while waiting.
+
+Before research record target, compensation, schedule/employment and other material-constraint decisions in `search_config.search_setup`: confirmed value/evidence/date, explicit no-preference/skip, or pending. Normalize existing answers yourself without asking again. A research-start request alone does not answer missing material preferences; source review and intake can continue before these are resolved.
+
 Capture incrementally after direction selection. Every entry has a value, `hard`/`preference`/`negotiable` classification, known/unknown status, confirmation date and optional validity period:
 
 - Geography; work authorization only where needed; working and interview languages.

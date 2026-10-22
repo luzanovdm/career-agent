@@ -83,6 +83,67 @@ def clarify(state, request):
     return cs.validate(candidate)
 
 
+def evidence_input_digest(state):
+    inputs = {"facts": state["facts"], "achievements": state.get("achievement_evidence", []),
+              "career_sources": [s for s in state["sources"] if s.get("purpose") == "career_evidence" or
+                                 any(s["id"] in f["source_ids"] for f in state["facts"])]}
+    return cs.hashlib.sha256(cs.canonical_json(inputs).encode()).hexdigest()
+
+
+def evidence_coverage(state):
+    """A reviewed extraction ledger is required even when no achievements were captured."""
+    review = state["profile"].get("evidence_review")
+    issues = []
+    facts = {f["id"]: f for f in state["facts"]}
+    required_sources = {i for f in facts.values() for i in f["source_ids"]}
+    required_sources.update(s["id"] for s in state["sources"] if s.get("purpose") == "career_evidence")
+    if not review or review["status"] != "reviewed": issues.append("Career source extraction has not been reviewed")
+    if review:
+        if review.get("input_sha256") != evidence_input_digest(state): issues.append("Source extraction review is stale")
+        if not required_sources <= set(review["source_ids"]): issues.append("Career source coverage is incomplete")
+        classified = {item["fact_id"] for item in review["items"]}
+        if classified != set(facts): issues.append("Classify each extracted fact as achievement, background or credential")
+        captured_ids = {i for item in review["items"] for i in item["achievement_ids"]}
+        if captured_ids != {a["id"] for a in state.get("achievement_evidence", [])}: issues.append("Achievement inventory differs from reviewed extraction")
+    return {"ready": not issues, "issues": issues, "source_ids": sorted(required_sources),
+            "review_sha256": cs.hashlib.sha256(cs.canonical_json(review).encode()).hexdigest() if review else None}
+
+
+def review_sources(state, request):
+    """Record the agent's source-by-source extraction review, never user confirmation of invented facts."""
+    cs.validate_shape(request, cs.state_schema()["$defs"]["evidence_review"], cs.state_schema(), "evidence review")
+    request = {**copy.deepcopy(request), "input_sha256": evidence_input_digest(state)}
+    candidate = copy.deepcopy(state)
+    before = candidate["profile"].get("evidence_review")
+    if before == request: return state
+    candidate["profile"]["evidence_review"] = copy.deepcopy(request)
+    candidate["change_history"].append({"operation": "review_career_sources", "at": request["at"], "reason": request["evidence"],
+        "revision_from": state["revision"], "request": copy.deepcopy(request), "before": before, "after": copy.deepcopy(request)})
+    return cs.validate(candidate)
+
+
+def semantic_bindings(text, audit):
+    """Compute review inputs only; hashes do not attest that a semantic review happened."""
+    selection = {"target_role": audit["target_role"], "entries": audit["entries"]}
+    return {"draft_sha256": cs.hashlib.sha256(text.encode("utf-8")).hexdigest(),
+            "selection_sha256": cs.hashlib.sha256(cs.canonical_json(selection).encode()).hexdigest()}
+
+
+def semantic_status(state, text, audit, coverage):
+    review = audit.get("semantic_review")
+    required_interpretations = {latest_interpretation(state, e["achievement_id"])["id"] for e in audit["entries"]
+        if e["decision"] in {"include", "qualify"} and latest_interpretation(state, e["achievement_id"])}
+    issues = list(coverage["issues"])
+    if not review or review["status"] != "reviewed": issues.append("Semantic meaning and attribution review is pending")
+    if review:
+        for name, digest in semantic_bindings(text, audit).items():
+            if review.get(name) != digest: issues.append("Semantic review is stale or unbound: " + name)
+        if review["evidence_review_sha256"] != coverage["review_sha256"]: issues.append("Semantic review does not cover the current extraction review")
+        if set(review["interpretation_ids"]) != required_interpretations: issues.append("Semantic review must cover current selected interpretations")
+        if review["unresolved_fields"]: issues.append("Material semantic clarifications remain unresolved")
+    return {"ready": not issues, "issues": issues, "status": review["status"] if review else "pending"}
+
+
 def omission_allowed(state, selection, original, entries, evidence):
     reason = selection.get("omission_reason")
     if not selection.get("omission_evidence"): return False
@@ -188,12 +249,14 @@ def audit_resume(state, text, audit):
                 errors.append(identifier + ": qualify the outcome's actual scope in the wording")
             if scope == "individual" and not any(facts[i]["ownership"] == "individual" and not (Counter(cs.numeric_anchors(metric["verbatim"])) - Counter(cs.numeric_anchors(facts[i]["statement"]))) for i in support):
                 errors.append(identifier + ": personal attribution of the number is unconfirmed")
-    return {"valid": not errors, "ready": not errors and not pending, "errors": errors, "pending_achievement_ids": sorted(set(pending)), "omitted_irrelevant_ids": [], "omitted_justified_ids": omitted,
-            "source_achievement_count": len(evidence), "semantic_review_required": True}
+    coverage = evidence_coverage(state)
+    semantic = semantic_status(state, text, audit, coverage)
+    return {"valid": not errors, "ready": not errors and not pending and semantic["ready"], "errors": errors, "pending_achievement_ids": sorted(set(pending)), "omitted_irrelevant_ids": [], "omitted_justified_ids": omitted,
+            "source_achievement_count": len(evidence), "semantic_review_required": True, "evidence_coverage": coverage, "semantic_review": semantic}
 
 
-def require_resume_audit(state, text, metadata):
-    if metadata.get("kind") != "resume" or metadata.get("visibility") != "external" or not state.get("achievement_evidence"): return None
+def require_resume_audit(state, text, metadata, required=False):
+    if metadata.get("kind") != "resume" or metadata.get("visibility") != "external" or (not required and not state.get("achievement_evidence")): return None
     cs.require(metadata.get("adaptation_audit") is not None, "New adapted resume needs a lossless source-selection audit")
     result = audit_resume(state, text, metadata["adaptation_audit"])
     cs.require(result["valid"], "; ".join(result["errors"]))
@@ -205,34 +268,34 @@ def require_resume_audit(state, text, metadata):
 def review_reference(state, workspace, material, review):
     import career_materials as cm
     path = cm.material_file(workspace, material)
-    if not state.get("achievement_evidence"): return None
     cs.require(review and review.get("sha256") == material["sha256"], "Resume review must bind the exact immutable material hash")
     if path.suffix.lower() in {".md", ".txt"}:
-        text = path.read_text(encoding="utf-8")
+        text = path.read_bytes().decode("utf-8")
         cs.require(not review.get("extracted_text") or review["extracted_text"] == text, "Resume extraction differs from actual text")
     else:
         cs.require(review.get("extracted_text"), "Host-readable extracted resume text required; helper does not parse binary resumes")
         text = review["extracted_text"]
-    return require_resume_audit(state, text, {**material, "adaptation_audit": review.get("adaptation_audit")})
+    return require_resume_audit(state, text, {**material, "adaptation_audit": review.get("adaptation_audit")}, required=True)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("capture", "interpret", "clarify", "plan", "audit"))
+    parser.add_argument("command", choices=("capture", "interpret", "clarify", "review-sources", "plan", "audit"))
     parser.add_argument("state"); parser.add_argument("input")
     parser.add_argument("--expected-revision", type=int); parser.add_argument("--draft")
     args = parser.parse_args()
     try:
         request = cs.load_json(args.input)
-        if args.command in {"capture", "interpret", "clarify"}:
+        if args.command in {"capture", "interpret", "clarify", "review-sources"}:
             cs.require(args.expected_revision is not None, "Expected revision required")
-            operation = {"capture": capture, "interpret": lambda s, r: cs.add_record(s, "achievement_interpretations", r), "clarify": clarify}[args.command]
+            operation = {"capture": capture, "interpret": lambda s, r: cs.add_record(s, "achievement_interpretations", r), "clarify": clarify, "review-sources": review_sources}[args.command]
             state = cs.transact(args.state, lambda s: operation(s, request), args.expected_revision)
-            result = {"valid": True, "revision": state["revision"]}
+            result = {"valid": True, "revision": state["revision"], "evidence_coverage": evidence_coverage(state),
+                      "clarification_plan": clarification_plan(state, [a["id"] for a in state.get("achievement_evidence", [])])}
         elif args.command == "plan": result = clarification_plan(cs.read_state(args.state), request["achievement_ids"], request.get("limit", 2))
         else:
             cs.require(args.draft, "Actual draft path required")
-            result = audit_resume(cs.read_state(args.state), Path(args.draft).read_text(), request)
+            result = audit_resume(cs.read_state(args.state), Path(args.draft).read_bytes().decode("utf-8"), request)
         print(json.dumps(result, indent=2)); return 0 if result.get("valid", True) else 3
     except (cs.Invalid, OSError, ValueError, KeyError, TypeError) as error:
         print("Error: " + str(error), file=sys.stderr); return 2

@@ -1,5 +1,7 @@
 # Search completion: new saved application cases
 
+Before research, enforce the minimal intake and current-run gates in [discovery](discovery.md). Before completion, require reviewed extraction coverage and semantic resume review even for an initially empty achievement inventory. Normal preparation/readback cannot bypass them by leaving arrays empty. Saving a private conditional package remains permitted, including during pause; it is not research permission or a completed quota item.
+
 Follow [evidence-preserving achievement adaptation](achievement-adaptation.md): retain original claims/metrics, interpret contribution and significance before selection, reuse grouped clarification answers, and audit the actual draft, retained secondary strengths and specifically justified exclusions before saving a resume.
 
 A request to find suitable opportunities means new actionable application cases with saved ready-to-review packages, not a two-link chat shortlist. Reuse the chosen active workspace and all current preferences. Do not reopen an unfinished archive or search other profiles implicitly. Only an explicitly narrower research-only request ends before packages. Preparing is not permission to send, accept agreements, create accounts or reapply.

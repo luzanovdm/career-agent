@@ -206,12 +206,14 @@ class StateTests(unittest.TestCase):
         state = base()
         with self.assertRaises(cs.Invalid):
             cs.control_change(state, "start", "Demo user request", "Demo scope", False)
-        state = cs.control_change(state, "start", "Demo user request", "Demo scope", True)
-        self.assertTrue(cs.research_allowed(state))
+        from workflow_fixtures import setup_decisions
+        state["search_config"]["search_setup"] = setup_decisions()
+        state = cs.control_change(state, "start", "Demo user request", "Demo scope", True, "live-run")
+        self.assertTrue(cs.research_allowed(state, "live-run"))
         state = cs.control_change(state, "pause", "Demo pause", "", True)
         self.assertFalse(cs.research_allowed(state))
-        state = cs.control_change(state, "resume", "Demo resume", "", True)
-        self.assertTrue(cs.research_allowed(state))
+        state = cs.control_change(state, "resume", "Demo resume", "", True, "live-run")
+        self.assertTrue(cs.research_allowed(state, "live-run"))
 
     def test_interview_practice_requires_confirmed_candidate_facts(self):
         state = base()

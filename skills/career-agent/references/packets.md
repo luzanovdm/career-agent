@@ -1,5 +1,7 @@
 # Application packets
 
+A complete packet requires a reviewed career-source extraction ledger, captured achievement inventory and a current semantic adaptation review of the actual resume. Perform the [achievement workflow](achievement-adaptation.md) even when no inventory exists yet. Save incomplete drafts with explicit conditional status; missing answers or review never prohibit saving. Numeric/structural audit success alone is not proof of semantic quality.
+
 Follow [evidence-preserving achievement adaptation](achievement-adaptation.md): retain original claims/metrics, interpret contribution and significance before selection, reuse grouped clarification answers, and audit the actual draft, retained secondary strengths and specifically justified exclusions before saving a resume.
 
 Use [the interaction contract](interaction.md) for every intake choice, factual clarification or preference: native questionnaires are required when applicable in the current host/mode; keep conclusions in chat and avoid duplicate prose questions.

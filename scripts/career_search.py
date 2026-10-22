@@ -118,7 +118,8 @@ def income_assessment(config, pay, role=None):
         for name, disposition in (("salary_floor", "floor_disposition"), ("salary_goal", "goal_disposition")):
             if disposition in policy and (config.get(name) is not None) != (policy[disposition] == "stated"):
                 return {"status": "intake_missing", "reason": "Recorded salary disposition conflicts with amount", "policy_status": policy_status}
-    if config.get("salary_floor") is None and not (policy and policy.get("floor_disposition") == "no_floor"):
+    skipped = config.get("search_setup", {}).get("compensation", {}).get("disposition") in {"no_preference", "skipped"}
+    if config.get("salary_floor") is None and not (policy and policy.get("floor_disposition") == "no_floor") and not skipped:
         return {"status": "intake_missing", "reason": "Confirm the floor or an explicit no-floor choice", "policy_status": policy_status}
     policy = policy or {}
     floor, goal = config.get("salary_floor"), config.get("salary_goal")
@@ -231,6 +232,8 @@ def verified_failure(state, assessment):
 def readiness(state, case):
     role = next(r for r in state["opportunities"] if r["id"] == case["opportunity_id"])
     reasons, unknowns, clarifications, pending_consents = [], [], [], []
+    setup = cs.search_prerequisites(state)
+    if not setup["ready"]: unknowns.append("Search intake decisions missing: " + ", ".join(setup["missing"]))
     if case["novelty"]["status"] != "new": reasons.append("Not a verified new case")
     company = next(c for c in state["companies"] if c["id"] == role["company_id"])
     excluded = state["search_config"].get("excluded_companies", [])
@@ -334,7 +337,7 @@ def prepare_case(state_path, workspace, request, expected_revision, requested=1)
             else:
                 # Recover older interrupted v1 reservations without treating their own role as new.
                 role = next(r for r in state["opportunities"] if r["id"] == existing["opportunity_id"])
-                original_role = {k: v for k, v in role.items() if k not in {"fit_summary", "pay_summary", "next_action"}}
+                original_role = {k: v for k, v in role.items() if k not in {"fit_summary", "fit_assessment", "pay_summary", "next_action"}}
                 form = next(r for r in state["forms"] if r["id"] == existing["form_id"])
                 cs.require(cs.canonical_json(request["opportunity"]) == cs.canonical_json(original_role) and
                            cs.canonical_json(request["form"]) == cs.canonical_json(form) and
@@ -386,8 +389,7 @@ def prepare_case(state_path, workspace, request, expected_revision, requested=1)
             cm.material_file(workspace, material)
             import career_achievements as achievements
             try:
-                if state.get("achievement_evidence"):
-                    cs.require(reference.get("adaptation_audit", {}).get("target_role") == case["opportunity_id"], "Resume selection audit must target this exact role")
+                cs.require(reference.get("adaptation_audit", {}).get("target_role") == case["opportunity_id"], "Resume selection audit must target this exact role")
                 resume_result = achievements.review_reference(state, workspace, material, reference)
             except cs.Invalid as error:
                 draft_errors.append(str(error))
@@ -401,11 +403,11 @@ def prepare_case(state_path, workspace, request, expected_revision, requested=1)
                         "language": document["language"], "visibility": "external" if slot in {"resume", "cover-letter"} else "private",
                         "at": request["at"], "fact_ids": document["fact_ids"], "source_ids": document["source_ids"]}
             if "adaptation_audit" in document: metadata["adaptation_audit"] = copy.deepcopy(document["adaptation_audit"])
-            if slot == "resume" and state.get("achievement_evidence"):
+            if slot == "resume":
                 import career_achievements as achievements
                 try:
                     cs.require(metadata.get("adaptation_audit", {}).get("target_role") == case["opportunity_id"], "Resume selection audit must target this exact role")
-                    resume_result = achievements.require_resume_audit(state, document["text"], metadata)
+                    resume_result = achievements.require_resume_audit(state, document["text"], metadata, required=True)
                 except cs.Invalid as error:
                     draft_errors.append(str(error))
                     metadata["visibility"] = "private"
@@ -439,7 +441,8 @@ def prepare_case(state_path, workspace, request, expected_revision, requested=1)
                 "material_id": material["id"], "material_sha256": material["sha256"]})
         role = next(r for r in candidate["opportunities"] if r["id"] == record["opportunity_id"])
         assessment = readiness(candidate, record)
-        role.update(fit_summary=request["fit_summary"], pay_summary=assessment["income"]["status"] + ": " + assessment["income"]["reason"],
+        role.update(fit_assessment={"state": "assessed", "summary": request["fit_summary"], "reason": "", "at": request["at"], "source_ids": list(role["source_ids"])},
+                    fit_summary=request["fit_summary"], pay_summary=assessment["income"]["status"] + ": " + assessment["income"]["reason"],
                     next_action="Continue saved draft review" if record["phase"] == "preparing" else "Review Markdown package: " + assessment["status"])
         return cs.validate(candidate)
     state = cs.transact(state_path, finish, state["revision"])
@@ -471,14 +474,14 @@ def verify_case(state, workspace, case_id):
         if pin["slot"] == "resume" and draft_issues:
             achievement_review = {"valid": False, "ready": False, "errors": list(dict.fromkeys(draft_issues)),
                                   "pending_achievement_ids": [], "source_achievement_count": len(state.get("achievement_evidence", [])), "semantic_review_required": True}
-        elif pin["slot"] == "resume" and state.get("achievement_evidence"):
+        elif pin["slot"] == "resume":
             import career_achievements as achievements
             audit = case.get("resume_review", {}).get("adaptation_audit") if material["id"] == case["reference_resume_id"] else material.get("adaptation_audit")
             cs.require(audit and audit["target_role"] == case["opportunity_id"], "Resume selection audit must target this exact role")
             if material["id"] == case["reference_resume_id"]:
                 achievement_review = achievements.review_reference(state, workspace, material, case.get("resume_review"))
             else:
-                achievement_review = achievements.require_resume_audit(state, cm.material_file(workspace, material).read_text(encoding="utf-8"), material)
+                achievement_review = achievements.require_resume_audit(state, cm.material_file(workspace, material).read_bytes().decode("utf-8"), material, required=True)
     assessment = readiness(state, case)
     if case["phase"] == "preparing":
         assessment.update(draft_ready=False, status="blocked" if assessment["status"] == "blocked" else "conditional",
