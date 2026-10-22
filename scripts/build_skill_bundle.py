@@ -13,9 +13,17 @@ import career_updates as updates
 
 
 SOURCE = Path(__file__).resolve().parents[1]
-HELPERS = ("career_state.py", "career_snapshot.py", "career_materials.py", "career_search.py", "career_achievements.py", "career_updates.py")
+HELPERS = ("career_state.py", "career_snapshot.py", "career_materials.py", "career_search.py", "career_achievements.py", "career_updates.py", "career_portal.py")
 REFERENCES = ("profile.md", "discovery.md", "packets.md", "tracking.md", "interviews.md",
-              "history-import.md", "research-tools.md", "materials.md", "records.md", "interaction.md", "context-enrichment.md", "host-capabilities.md", "search-cases.md", "achievement-adaptation.md", "updates.md")
+              "history-import.md", "research-tools.md", "materials.md", "records.md", "interaction.md", "context-enrichment.md", "host-capabilities.md", "search-cases.md", "achievement-adaptation.md", "updates.md", "portal.md")
+
+
+class CompiledAssets:
+    """Static template bytes in an already supported updater payload path."""
+    def __init__(self, assets): self.data = ("# Generated from the fixed data-free portal templates.\nASSETS = " + repr(assets) + "\n").encode("utf-8")
+    def read_bytes(self): return self.data
+    def is_symlink(self): return False
+    def is_file(self): return True
 
 
 def payload_sources():
@@ -24,6 +32,9 @@ def payload_sources():
     files.update({"references/" + name: core / "references" / name for name in REFERENCES})
     files.update({"scripts/" + name: SOURCE / "scripts" / name for name in HELPERS})
     files.update({"references/" + name: SOURCE / "references" / name for name in ("state.schema.json", "state-format.md")})
+    template_files = {name: SOURCE / "templates/portal" / name for name in ("index.html", "style.css", "app.js")}
+    if any(p.is_symlink() or not p.is_file() for p in template_files.values()): raise ValueError("Fixed portal templates must be regular source files")
+    files["scripts/career_portal_assets.py"] = CompiledAssets({name: p.read_text(encoding="utf-8") for name, p in template_files.items()})
     for path in files.values():
         if path.is_symlink() or not path.is_file(): raise ValueError("Bundle sources must be regular allowlisted files")
     return files
@@ -48,7 +59,7 @@ def build(destination):
     if files != release["files"]: raise ValueError("Release descriptor is stale; maintainer must refresh it after payload edits")
     destination.mkdir(mode=0o755, parents=True)
     for name, source in sources.items():
-        target = destination / name; target.parent.mkdir(parents=True, exist_ok=True); shutil.copyfile(source, target)
+        target = destination / name; target.parent.mkdir(parents=True, exist_ok=True); target.write_bytes(source.read_bytes())
     (destination / "BUNDLE.json").write_text(json.dumps({"bundle_version": 1, "release": release["release"], "files": files}, indent=2) + "\n")
     return {"bundle": str(destination), "files": len(files) + 1, "version": release["release"]["version"]}
 

@@ -1,44 +1,48 @@
 {
   "descriptor_version": 1,
   "release": {
-    "version": "0.1.1",
-    "tag": "v0.1.1",
+    "version": "0.2.0",
+    "tag": "v0.2.0",
     "repository": "https://github.com/luzanovdm/career-agent",
     "state_schema_versions": [
       1
     ]
   },
   "changes": [
-    "Preserve canonical and legacy fit assessments in tracking exports without changing application outcomes.",
-    "Check recorded target, compensation, schedule and material constraints before external discovery; reuse answers and explicit skips.",
-    "Require current source coverage and semantic review bound to exact resume text, target and selection before counting complete packets; preserve incomplete drafts.",
-    "Bind research permission to a bounded live operation and reconcile stopped, interrupted, expired or reopened work before resuming."
+    "Add a fixed local application portal using the approved list/editor design, paged JSON and lazy packet loading; retain XLSX/CSV.",
+    "Add Light, Dark and System appearance modes, defaulting to System with saved choices and operating-system updates.",
+    "Continue staged search cases through Markdown packet preparation and explicit completion/shortfall receipts.",
+    "Include saved interview question/answer materials with source-backed concept links, without starting live drills.",
+    "Package template assets through existing updater-compatible paths; keep browser notes separate from confirmed campaign events."
   ],
   "files": {
-    "SKILL.md": "104086a3727bdb0d3df6ad1ee599c516a2613570e037f69600005bddf8d8ab84",
+    "SKILL.md": "e040f8ff86ef8cf90efed2808402ceb2111a8344f36c657bdc4ffb77e29fcdb7",
     "LICENSE": "8df9bcff1b809c4ca4ea98dc5d1f0bdf44a2bafdc11c9e9e52e21652b1eed763",
     "references/profile.md": "32f3a006cf6f40e29fbc100498c3f207f96c9121a4e665d86f84ca0b5aea3173",
     "references/discovery.md": "71f172b4a2770acbf68fdb6f34daee66b08f1585eecee5d3e1b39d05aaac9ac9",
     "references/packets.md": "56a04a83e1969f3c6f71b51bbfb7b2ee55088ad0fe19d65af3436fbd96c1f8f2",
-    "references/tracking.md": "e7c2d9b986f62fc1f3adcfba7f7fb1173f474f347e7c2423bc2e75d8c95bae99",
-    "references/interviews.md": "8229e93cf32bb2363539a7e815d9ce55a889e78da51ce86c06862b7198394dee",
+    "references/tracking.md": "b421f6b4c45ae60806398288d2c3fc561c96c81b71ef53620015cb0c78bf5d2a",
+    "references/interviews.md": "2b123ff62378cfcbc4bc8f3080bc0b1c4eebc311421e69a1e7d729f6da69b2cf",
     "references/history-import.md": "094da8f4c62c1d2327acfc5513a9c0cba0bedb9e4d768b1404674252b6d7d50c",
     "references/research-tools.md": "8756915b7e247b2114bced8ea7aa95e8193d0d04ce780017f4acf062530ce7ef",
     "references/materials.md": "53c17d1141e9fbc4ff940fb7dad890e98847e764cbc7bb480654e1db6aad79d0",
-    "references/records.md": "10a3317feba5b06b271a60f9c39c1a637333a495eb5692f8a0e29224c9d8a3ab",
+    "references/records.md": "c7d6c745e020069965dec8953f1871f1f1ca5586e01a313ee014f1af54208ce6",
     "references/interaction.md": "22621931357290e228d9614d463d292fb865c6eea70351c6b3f611921b96686b",
     "references/context-enrichment.md": "b41711011598fb7e2af5826f74a9042410ca5fe503039470603a5ae9ec692ab4",
     "references/host-capabilities.md": "eb82e83f9aa88f5d759be7c2806cbf03c6ba320f01634877db77b7597d340a2e",
-    "references/search-cases.md": "3e2916734fe2560caeba555c0f9133aa2eaf72a5d52b01d88ad8968bc2e96aee",
+    "references/search-cases.md": "32a2148ba0cfa2321198a23c24168047f557716744bf11f63d2c586a2af3e279",
     "references/achievement-adaptation.md": "23d534c16cfff4f643caa4eac1c316c7e1752c8ce66770dfedd8d2848ee09d2c",
     "references/updates.md": "0ae868078e503ccbb41b085a365515be48853e382a73f93a803dc3568c2e4196",
-    "scripts/career_state.py": "bd0c31339a8179375ed8600288ab11ee7fc99b51d69e793cd34ba155c65fc7e1",
+    "references/portal.md": "3239e806682991daa87647b9cc217ca2fb2ec2e0dde35cb2df28900cff0f4bed",
+    "scripts/career_state.py": "39dab09355cee5bf72239268903b8d1e138c505e513768fbfab991579ce11513",
     "scripts/career_snapshot.py": "eda54d97291b401541ee43102e9ae13d2476c038601d7a48118a1821a0c6595b",
     "scripts/career_materials.py": "97d128e61ae62d3b9495d6c29fbc615507af59335c40e33bdf6d1f63c82f46e7",
-    "scripts/career_search.py": "98b998d54d97ff99d75962eef72adaa270740ad797bf3e473dc94ab1cde7329a",
+    "scripts/career_search.py": "4c53db0b1581a4b379c8892b0f4e6111aedd1b26fcbc9b7f4854ac1d2213ae43",
     "scripts/career_achievements.py": "e2233915a884ed614155e615db73ec7c7081772ae563ca174275a0fd79422d79",
     "scripts/career_updates.py": "d70a622d56232c16a1514cae37ef3c56cc87bc0baa49950694a097e367453005",
-    "references/state.schema.json": "d060b763d62c3b5d6107d4bbf42999acda533a7e38b882c5de0e7ea14a4e2418",
-    "references/state-format.md": "09e60de680078b83e16becb3072493455afcd3de590c217a72a5c0b9a01ba0b1"
+    "scripts/career_portal.py": "32f8e6b292ac78de39c97a5044ddbf626dc8f7b055756f707484a9ae9968f50f",
+    "references/state.schema.json": "a13825b8e1915670a3def6dabc9409ee9e847853579c3f7b42c80dd74264b530",
+    "references/state-format.md": "7d5f957a677ecd968ae50620cff378bfac481ae683ec9377b62c2f7db14c3d57",
+    "scripts/career_portal_assets.py": "de95fc17efca339091a6729daffa85bc854b3babc27d7c71d0c6f2f2e1573d06"
   }
 }

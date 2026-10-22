@@ -42,3 +42,6 @@ __pycache__/
 *.csv
 *.html
 .career-view-*
+
+# Track only the reusable source shell; generated/private HTML stays ignored.
+!/templates/portal/index.html

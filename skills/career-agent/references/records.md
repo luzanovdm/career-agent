@@ -27,3 +27,5 @@ Optional planning records in the private profile/handoff include calendar opt-in
 Include search-case batch IDs, initial novelty evidence/registry hashes and coverage errors, compensation provenance, condition assessments, exact form and attempt references, preparation phase and current-view verification. Keep company outreach distinct from advertised vacancies.
 
 Include the verbatim achievement inventory, source metric spans/units/attribution, versioned meaning interpretations, grouped clarification dispositions and per-target adaptation audits in private handoffs. They stay separate from external document text; historical versions remain immutable. See [achievement adaptation](achievement-adaptation.md).
+
+The optional local HTML portal uses one bundled fixed template and paged JSON data; XLSX/CSV remain supported. It is a generated private snapshot with separately exported browser notes, never a competing campaign database. See [portal workflow](portal.md).

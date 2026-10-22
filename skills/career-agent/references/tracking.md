@@ -26,3 +26,5 @@ When the optional helper is available, use its deterministic `stats` output. It 
 Use [history import](history-import.md) for prior lists/files or authorized read-only mail reconciliation. Report imported user/provider observations separately from confirmed-sent events; threads, follow-ups and unscoped company contact are not additional applications. Update canonical state first, then refresh Career.xlsx or the plain Career.csv snapshot through available tools. The ordinary user does not run helpers. Preserve manually changed views and report stale/failed exports honestly.
 
 Before reporting search completion, run the [new-case persistence/readback/package checks](search-cases.md). Count accepted pay-uncertain ready packages transparently and keep conditional packages, revisits and unresolved prior submits separate. General prepared counts alone do not establish completed new-case quota.
+
+The optional local HTML portal uses one bundled fixed template and paged JSON data; XLSX/CSV remain supported. It is a generated private snapshot with separately exported browser notes, never a competing campaign database. See [portal workflow](portal.md).

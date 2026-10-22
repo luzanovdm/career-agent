@@ -263,7 +263,7 @@ class MaterialTests(unittest.TestCase):
         import build_skill_bundle as builder
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory); source = root / "synthetic-source"
-            for name in ("skills", "scripts", "references"):
+            for name in ("skills", "scripts", "references", "templates"):
                 shutil.copytree(ROOT / name, source / name, ignore=shutil.ignore_patterns("__pycache__"))
             shutil.copyfile(ROOT / "release.json", source / "release.json")
             unexpected = source / "skills/career-agent/references/alex-demo-private.md"

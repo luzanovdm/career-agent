@@ -20,9 +20,9 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 COLLECTIONS = (
     "sources", "companies", "opportunities", "facts", "suggestions", "artifacts",
     "attempts", "responses", "coverage", "answers", "dossier", "cases",
-    "interview_prep", "referrals", "referral_drafts", "contact_events", "forms", "history_imports", "materials", "application_attempts", "credentials", "rehearsals", "context_insights", "search_cases", "achievement_evidence", "achievement_interpretations",
+    "interview_prep", "referrals", "referral_drafts", "contact_events", "forms", "history_imports", "materials", "application_attempts", "credentials", "rehearsals", "context_insights", "search_cases", "achievement_evidence", "achievement_interpretations", "search_batches",
 )
-OPTIONAL_COLLECTIONS = {"context_insights", "search_cases", "achievement_evidence", "achievement_interpretations"}
+OPTIONAL_COLLECTIONS = {"context_insights", "search_cases", "achievement_evidence", "achievement_interpretations", "search_batches"}
 RESPONSE_TYPES = {"auto_receipt", "human_reply", "interview", "offer", "rejection",
                   "bounce", "withdrawal", "rejected_before_application"}
 TRACKING_KEYS = {"fbclid", "gclid", "msclkid"}
@@ -528,6 +528,15 @@ def validate(state):
         _refs(row, "source_ids", index["sources"], row["question_status"] == "publicly_documented")
         require(isinstance(row.get("pressure_points"), list) and
                 isinstance(row.get("employer_questions"), list), "Interview preparation lists required")
+        terms = set()
+        for link in row.get("concept_links", []):
+            require(link["term"].casefold() not in terms and link["term"].casefold() in (row["question"] + " " + row["outline"]).casefold(), "Concept links must name distinct terms in the actual dialogue")
+            terms.add(link["term"].casefold())
+            source = index["sources"].get(link["source_id"])
+            require(source and source["id"] in row["source_ids"] and source["kind"] == "web", "Concept link needs its observed web source")
+            require(canonical_url(link["url"]) == canonical_url(source["locator"]), "Concept URL differs from the observed source")
+            require(any(o["at"] == link["checked_at"] and o["status"] in {"open", "not_applicable"} and
+                        (link["kind"] != "official" or o["primary"]) for o in source["observations"]), "Concept link needs an actual checked observation; official links need primary evidence")
     for row in state["referrals"]:
         _text(row, "public_name", "observed_role", "relevance", "company_id")
         require(row["company_id"] == index["opportunities"][row["opportunity_id"]]["company_id"],
@@ -1280,12 +1289,17 @@ def validate_search_cases(state, index):
             require(route.get("source_id") in role["source_ids"], "Outreach needs a source-backed contact route")
             timestamp(route.get("checked_at"))
             require(all(o["status"] == "unknown" for o in role["status_observations"]), "Speculative outreach is not an advertised opening")
+    for batch in state.get("search_batches", []):
+        _text(batch, "scope", "evidence")
+        timestamp(batch["at"])
     for case in state.get("search_cases", []):
         role = index["opportunities"].get(case["opportunity_id"])
         require(role is not None, "Search case needs an exact opportunity")
         form = index["forms"].get(case["form_id"])
         require(form and form["opportunity_id"] == role["id"], "Case form must belong to the exact role")
         timestamp(case["at"])
+        for identifier in case.get("interview_prep_ids", []):
+            require(identifier in index["interview_prep"] and index["interview_prep"][identifier]["opportunity_id"] == role["id"], "Pinned preparation must belong to the exact case")
         for item in [case["compensation"], *case["compensation"].get("estimates", [])]:
             if item.get("source_id"):
                 require(item["source_id"] in index["sources"], "Pay evidence needs a recorded source")

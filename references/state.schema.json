@@ -184,6 +184,12 @@
       "items": {
         "$ref": "#/$defs/achievement_interpretation"
       }
+    },
+    "search_batches": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/search_batch"
+      }
     }
   },
   "required": [
@@ -1320,6 +1326,23 @@
             "minLength": 1
           },
           "uniqueItems": true
+        },
+        "concept_links": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/concept_link"
+          }
+        },
+        "unknowns": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
         }
       },
       "required": [
@@ -3048,6 +3071,12 @@
         "revision_reason": {
           "type": "string",
           "minLength": 1
+        },
+        "interview_preparation": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/interview_prep"
+          }
         }
       },
       "required": [
@@ -3123,7 +3152,8 @@
         "phase": {
           "enum": [
             "preparing",
-            "saved"
+            "saved",
+            "discovered"
           ]
         },
         "form_id": {
@@ -3216,6 +3246,14 @@
             "type": "string",
             "minLength": 1
           }
+        },
+        "interview_prep_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
         }
       },
       "required": [
@@ -3807,6 +3845,161 @@
         "interpretation_ids",
         "evidence",
         "unresolved_fields"
+      ],
+      "additionalProperties": false
+    },
+    "search_batch": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requested_new": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "id",
+        "requested_new",
+        "at",
+        "scope",
+        "evidence"
+      ],
+      "additionalProperties": false
+    },
+    "search_case_discovery": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "batch_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "company": {
+          "$ref": "#/$defs/company"
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/source"
+          },
+          "minItems": 1
+        },
+        "opportunity": {
+          "$ref": "#/$defs/opportunity"
+        },
+        "form": {
+          "$ref": "#/$defs/form"
+        },
+        "compensation": {
+          "$ref": "#/$defs/compensation"
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/case_condition"
+          }
+        },
+        "registry_paths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "fit_summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requested_new": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "revision_reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "interview_preparation": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/interview_prep"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "batch_id",
+        "at",
+        "company",
+        "sources",
+        "opportunity",
+        "form",
+        "compensation",
+        "conditions",
+        "fit_summary",
+        "requested_new"
+      ],
+      "additionalProperties": false
+    },
+    "concept_link": {
+      "type": "object",
+      "properties": {
+        "term": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "checked_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "kind": {
+          "enum": [
+            "official",
+            "explanatory"
+          ]
+        },
+        "reliability": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "term",
+        "url",
+        "source_id",
+        "checked_at",
+        "kind",
+        "reliability"
       ],
       "additionalProperties": false
     }

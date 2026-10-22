@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0
+
+- Add a fixed local application portal using the approved list/editor design, paged JSON and lazy packet loading; retain XLSX/CSV.
+- Add Light, Dark and System appearance modes, defaulting to System with saved choices and operating-system updates.
+- Continue staged search cases through Markdown packet preparation and explicit completion/shortfall receipts.
+- Include saved interview question/answer materials with source-backed concept links, without starting live drills.
+- Package template assets through existing updater-compatible paths; keep browser notes separate from confirmed campaign events.
+
+Local-first: no author-hosted service, telemetry or automated applications. Existing candidate files are not migrated. Review labels and source attestations still require the agent/host to read evidence. Browser notes are user-reported and require explicit reconciliation.
+
 ## 0.1.1
 
 - Preserve canonical and legacy fit assessments in tracking exports without changing application outcomes.

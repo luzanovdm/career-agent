@@ -70,7 +70,7 @@ class SnapshotFormatTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stderr); self.assertTrue((workspace / ("Career." + format)).is_file())
             result = subprocess.run(command + ["--format", "html"], cwd=root, capture_output=True, text=True)
             self.assertEqual(result.returncode, 2); self.assertFalse((workspace / "Career.html").exists())
-            self.assertEqual(sorted(p.suffix for p in bundle.rglob("*") if p.is_file() and p.suffix in {".html", ".htm"}), [])
+            self.assertEqual(sorted(str(p.relative_to(bundle)) for p in bundle.rglob("*") if p.is_file() and p.suffix in {".html", ".htm"}), [])
             # Inspect the built module, rather than relying on source-only producer checks.
             probe = subprocess.run([sys.executable, "-B", "-c", "import sys;sys.path.insert(0,sys.argv[1]);import career_snapshot as s;assert not hasattr(s,'html_bytes')", str(bundle / "scripts")], cwd=root, capture_output=True, text=True)
             self.assertEqual(probe.returncode, 0, probe.stderr)
