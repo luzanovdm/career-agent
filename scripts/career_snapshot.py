@@ -104,7 +104,9 @@ def view_data(state, workspace, as_of):
         if saved_cases and not roots:
             import career_search
             assessment = career_search.readiness(state, saved_cases[-1])
-            stage = ("Company outreach prospect: " if role["kind"] == "company_outreach" else "Saved review package: ") + assessment["status"].replace("_", " ")
+            stage = ("Company outreach prospect: " if role["kind"] == "company_outreach" else "Draft review package: ") + assessment["status"].replace("_", " ")
+        if saved_cases and not roots and assessment["pending_consents"]:
+            stage += " (submission consent pending)"
         guard = cs.reapplication_guard(state, identifier)
         next_action = role.get("next_action", "Reconcile history before reapplying" if guard["requires_review"] else "Choose next step in chat")
         observed = max(role["status_observations"], key=lambda item: cs.timestamp(item["at"]))

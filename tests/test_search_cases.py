@@ -74,7 +74,7 @@ class SearchCaseTests(unittest.TestCase):
         config = configured()["search_config"]; role = request()["opportunity"]
         self.assertEqual(search.income_assessment(config, pay(), role)["status"], "pass")
         self.assertEqual(search.income_assessment(config, pay(minimum=20000, maximum=30000), role)["status"], "fail")
-        for observed in ({"kind": "unpublished"}, pay(kind="lower_bound", minimum=20000), pay(period="hour"), pay(basis="net"), pay(currency="EUR"), pay(weekly_hours=20)):
+        for observed in ({"kind": "unpublished"}, pay(kind="lower_bound", minimum=20000), pay(period="hour"), pay(basis="net"), pay(currency="EUR")):
             self.assertEqual(search.income_assessment(config, observed, role)["status"], "unknown")
         estimate = pay(evidence_type="market_estimate", geography="Demo Region", level="Senior", comparable_role="API Engineer", confidence="high")
         result = search.income_assessment(config, {"kind": "unpublished", "estimates": [estimate]}, role)
@@ -213,7 +213,7 @@ class SearchCaseTests(unittest.TestCase):
                 self.assertEqual(result["completed"], not low_cap)
                 self.assertEqual(result["cases"][0]["income"]["status"], "fail" if low_cap else "estimated_compatible")
 
-    def test_cached_answers_require_exact_scope_and_consents_are_not_auto_ready(self):
+    def test_cached_answers_require_exact_scope_and_draft_consent_never_authorizes_submission(self):
         for consent in (False, True):
             with tempfile.TemporaryDirectory() as directory:
                 workspace, path = self.fixture(directory); item = request()
@@ -221,7 +221,10 @@ class SearchCaseTests(unittest.TestCase):
                 if consent: field.update(is_consent=True, consent_text_version="Synthetic terms version 1")
                 else: field.update(answer_id="unknown-cache-id", answer_query={"meaning": "identity.name", "scope": {"opportunity_id": "different-role"}, "units": {}})
                 result = search.prepare_case(path, workspace, item, 0)
-                self.assertFalse(result["completed"]); self.assertEqual(result["new_ready"], 0)
+                self.assertEqual(result["completed"], consent)
+                self.assertEqual(result["new_ready"], 1 if consent else 0)
+                self.assertFalse(result["cases"][0]["submission_authorized"])
+                self.assertEqual(result["cases"][0]["pending_consents"], ["name"] if consent else [])
 
     def test_new_helper_in_fresh_bundle_saves_packet_and_enforces_quota(self):
         with tempfile.TemporaryDirectory() as directory:

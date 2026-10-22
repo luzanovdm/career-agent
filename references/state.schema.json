@@ -435,6 +435,30 @@
         "level": {
           "type": "string",
           "minLength": 1
+        },
+        "role_track": {
+          "enum": [
+            "management",
+            "individual_contributor",
+            "unknown"
+          ]
+        },
+        "management_role": {
+          "type": "boolean"
+        },
+        "role_scope": {
+          "enum": [
+            "management",
+            "individual_contributor",
+            "unknown"
+          ]
+        },
+        "management_scope": {
+          "enum": [
+            "management",
+            "individual_contributor",
+            "unknown"
+          ]
         }
       },
       "required": [
@@ -1649,6 +1673,24 @@
                   "known",
                   "unknown"
                 ]
+              },
+              "dimension": {
+                "enum": [
+                  "geography",
+                  "contract_arrangement",
+                  "legal_eligibility",
+                  "management_language",
+                  "education",
+                  "skills",
+                  "other"
+                ]
+              },
+              "applies_to": {
+                "enum": [
+                  "all",
+                  "management",
+                  "individual_contributor"
+                ]
               }
             },
             "required": [
@@ -1681,7 +1723,14 @@
           ]
         },
         "income_policy": {
-          "$ref": "#/$defs/income_policy"
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/income_policy"
+            }
+          ]
         },
         "excluded_companies": {
           "type": "array",
@@ -1690,6 +1739,18 @@
             "minLength": 1
           },
           "uniqueItems": true
+        },
+        "case_types": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "vacancy",
+              "contract_project",
+              "company_outreach"
+            ]
+          },
+          "uniqueItems": true,
+          "minItems": 1
         }
       },
       "required": [
@@ -2457,12 +2518,7 @@
       },
       "required": [
         "confirmed_at",
-        "confirmation_evidence",
-        "employment_type",
-        "weekly_hours",
-        "floor_disposition",
-        "goal_disposition",
-        "case_types"
+        "confirmation_evidence"
       ],
       "additionalProperties": false
     },
@@ -2683,6 +2739,40 @@
             "hard",
             "preference",
             "negotiable"
+          ]
+        },
+        "dimension": {
+          "enum": [
+            "geography",
+            "contract_arrangement",
+            "legal_eligibility",
+            "management_language",
+            "education",
+            "skills",
+            "other",
+            "language"
+          ]
+        },
+        "covers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "applies_to": {
+          "enum": [
+            "all",
+            "management",
+            "individual_contributor"
+          ]
+        },
+        "verification": {
+          "enum": [
+            "primary_verified",
+            "user_confirmed",
+            "unverified"
           ]
         }
       },

@@ -3,6 +3,7 @@
 import argparse
 import copy
 import csv
+from fractions import Fraction
 import io
 import ipaddress
 import json
@@ -110,41 +111,54 @@ def novelty(state, workspace, role, extra=(), ignore_case=None):
 
 def income_assessment(config, pay, role=None):
     policy = config.get("income_policy")
-    if not policy:
-        return {"status": "intake_missing", "reason": "Income/hours/employment preferences need native-form confirmation"}
-    cs.validate_shape(policy, cs.state_schema()["$defs"]["income_policy"], cs.state_schema(), "income policy")
-    cs.timestamp(policy["confirmed_at"])
-    for name, disposition in (("salary_floor", "floor_disposition"), ("salary_goal", "goal_disposition")):
-        if (config.get(name) is not None) != (policy[disposition] == "stated"):
-            return {"status": "intake_missing", "reason": "Recorded salary disposition conflicts with amount"}
+    policy_status = "recorded" if policy else "absent"
+    if policy:
+        cs.validate_shape(policy, cs.state_schema()["$defs"]["income_policy"], cs.state_schema(), "income policy")
+        cs.timestamp(policy["confirmed_at"])
+        for name, disposition in (("salary_floor", "floor_disposition"), ("salary_goal", "goal_disposition")):
+            if disposition in policy and (config.get(name) is not None) != (policy[disposition] == "stated"):
+                return {"status": "intake_missing", "reason": "Recorded salary disposition conflicts with amount", "policy_status": policy_status}
+    if config.get("salary_floor") is None and not (policy and policy.get("floor_disposition") == "no_floor"):
+        return {"status": "intake_missing", "reason": "Confirm the floor or an explicit no-floor choice", "policy_status": policy_status}
+    policy = policy or {}
     floor, goal = config.get("salary_floor"), config.get("salary_goal")
+    def matching_units(item, required):
+        calendar_pair = {item.get("period"), required["period"]} <= {"month", "year"}
+        return (item.get("currency"), item.get("basis")) == (required["currency"], required["basis"]) and (item.get("period") == required["period"] or calendar_pair)
+    def comparison_amount(amount, period):
+        # Exact calendar normalization; source observations are never rewritten.
+        return Fraction(str(amount)) * (12 if period == "month" else 1)
+    floor_amount = comparison_amount(floor["amount"], floor["period"]) if floor else None
     def comparable(item):
-        if (item.get("employment_type"), item.get("weekly_hours")) != (policy["employment_type"], policy["weekly_hours"]): return False
+        # Fixed calendar amounts and same-period hourly rates need no invented schedule.
+        # Explicit work-hours requirements are evaluated as job constraints below.
+        if policy.get("employment_type") and item.get("employment_type") and item["employment_type"] != policy["employment_type"]: return False
         if item.get("basis") not in {"gross", "net"} or not item.get("source_id") or not item.get("checked_at"): return False
-        for required in (floor, goal):
-            if required and (item.get("currency"), item.get("basis"), item.get("period")) != (required["currency"], required["basis"], required["period"]): return False
+        for required in (floor,):
+            if required and not matching_units(item, required): return False
         cs.timestamp(item["checked_at"])
         return True
     def bounds(item):
         low, high = item.get("minimum"), item.get("maximum")
         cs.require(type(low) in {int, float} and type(high) in {int, float} and 0 <= low <= high, "Invalid observed pay interval")
         cs.require(item["kind"] != "exact" or low == high, "Exact pay requires equal bounds")
-        return low, high
+        return comparison_amount(low, item.get("period")), comparison_amount(high, item.get("period"))
     if pay and pay.get("kind") in {"exact", "range"} and pay.get("evidence_type") == "employer_confirmed" and comparable(pay):
         low, high = bounds(pay)
-        if floor and high < floor["amount"]: return {"status": "fail", "reason": "Confirmed employer cap is below the hard floor", "source_ids": [pay["source_id"]]}
-        if not floor or low >= floor["amount"]:
+        if floor and high < floor_amount: return {"status": "fail", "reason": "Confirmed employer cap is below the hard floor", "source_ids": [pay["source_id"]], "comparison_basis": "fixed_calendar_12_month_year" if pay.get("period") in {"month", "year"} else "same_period_hourly_rate"}
+        if not floor or low >= floor_amount:
             return {"status": "pass", "reason": "Comparable employer-confirmed pay meets the floor or explicit no-floor choice",
-                    "source_ids": [pay["source_id"]], "goal": "not_requested" if not goal else "meets" if low >= goal["amount"] else "below_or_crosses_goal"}
+                    "source_ids": [pay["source_id"]], "goal": "not_requested" if not goal else "units_unmatched" if not matching_units(pay, goal) else "meets" if low >= comparison_amount(goal["amount"], goal["period"]) else "below_or_crosses_goal",
+                    "policy_status": policy_status, "comparison_basis": "fixed_calendar_12_month_year" if pay.get("period") in {"month", "year"} else "same_period_hourly_rate"}
     for estimate in pay.get("estimates", []) if pay else []:
         if not role or estimate.get("evidence_type") not in {"company_comparable", "market_estimate"} or estimate.get("confidence") not in {"medium", "high"}: continue
         if estimate.get("geography") != role.get("hiring_geography") or estimate.get("level") != role.get("level") or not estimate.get("comparable_role"): continue
         if estimate.get("kind") not in {"exact", "range"} or not comparable(estimate): continue
         low, high = bounds(estimate)
-        if not floor or high >= floor["amount"]:
+        if not floor or high >= floor_amount:
             return {"status": "estimated_compatible", "reason": "Comparable company/market evidence supports reaching the floor; not an employer promise",
-                    "source_ids": [estimate["source_id"]], "geography": estimate["geography"], "confidence": estimate["confidence"]}
-    return {"status": "unknown", "reason": "Pay not established: unpublished/lower-bound/crossing range or mismatched units; retain uncertainty without inventing a cap"}
+                    "source_ids": [estimate["source_id"]], "geography": estimate["geography"], "confidence": estimate["confidence"], "policy_status": policy_status}
+    return {"status": "unknown", "reason": "Pay not established: unpublished/lower-bound/crossing range or mismatched units; retain uncertainty without inventing a cap", "policy_status": policy_status}
 
 
 def public_destination(value):
@@ -162,9 +176,61 @@ def public_destination(value):
         return False
 
 
+OPERATIONS_ONLY = {"submission.no_sends", "submission.authorization", "outreach.no_sends", "sending.authorization"}
+SCOPE_KEYS = {"search.case_types", "search.opportunity_types"}
+DIMENSION_KEYS = {
+    "geography": {"work.residence", "work.geography", "geography", "geography.eligibility", "location.eligibility", "work.location", "geographic_eligibility"},
+    "legal_eligibility": {"work.authorization", "work.rights", "legal.work_authorization", "contract.legal_eligibility"},
+    "language": {"work.language", "role.requirement.language", "language.essential"},
+    "management_language": {"management.team_language", "management.language", "leadership.team_language"},
+    "contract_arrangement": {"contract.arrangement", "contract.model", "contract.ie_eor", "work.contract_model", "payment.arrangement", "contractor.arrangement"},
+}
+
+
+def condition_dimension(row):
+    if row.get("dimension"): return row["dimension"]
+    return next((name for name, keys in DIMENSION_KEYS.items() if row["meaning"] in keys), None)
+
+
+def role_track(role):
+    tracks = {role[k] for k in ("role_track", "role_scope", "management_scope")
+              if role.get(k) in {"management", "individual_contributor"}}
+    for key in ("management_role", "is_management", "people_management"):
+        if type(role.get(key)) is bool: tracks.add("management" if role[key] else "individual_contributor")
+    return next(iter(tracks)) if len(tracks) == 1 else "unknown"
+
+
+def constraint_match(constraint, conditions):
+    exact = next((c for c in conditions if c["meaning"] == constraint["meaning"] or constraint["meaning"] in c.get("covers", [])), None)
+    if exact: return exact
+    dimension = condition_dimension(constraint)
+    matching = [c for c in conditions if dimension and condition_dimension(c) == dimension]
+    # Conflicting evidence must not be hidden behind a convenient pass alias.
+    return next((c for c in matching if c["outcome"] == "fail"), matching[0] if matching else None)
+
+
+def case_scope(state, kind):
+    config = state["search_config"]
+    allowed = (config.get("income_policy") or {}).get("case_types")
+    if allowed is None: allowed = config.get("case_types")
+    if allowed is None:
+        allowed = next((c["value"] for c in config["constraints"] if c["meaning"] in SCOPE_KEYS and c["status"] == "known"), None)
+    if isinstance(allowed, list) and allowed and all(k in {"vacancy", "contract_project", "company_outreach"} for k in allowed):
+        return {"status": "allowed" if kind in allowed else "excluded", "source": "recorded_case_types"}
+    return {"status": "not_normalized", "source": "existing_research_scope", "evidence": state["control"]["scope"]}
+
+
+def verified_failure(state, assessment):
+    if assessment.get("verification") == "unverified": return False
+    sources = {r["id"]: r for r in state["sources"]}
+    return any(any(o["primary"] for o in sources[i]["observations"]) or
+               sources[i]["kind"] == "user_statement" and assessment.get("verification") == "user_confirmed"
+               for i in assessment["source_ids"])
+
+
 def readiness(state, case):
     role = next(r for r in state["opportunities"] if r["id"] == case["opportunity_id"])
-    reasons, unknowns = [], []
+    reasons, unknowns, clarifications, pending_consents = [], [], [], []
     if case["novelty"]["status"] != "new": reasons.append("Not a verified new case")
     company = next(c for c in state["companies"] if c["id"] == role["company_id"])
     excluded = state["search_config"].get("excluded_companies", [])
@@ -174,32 +240,51 @@ def readiness(state, case):
     if identities & {name.casefold() for name in excluded}: reasons.append("Company is explicitly excluded")
     income = income_assessment(state["search_config"], case["compensation"], role)
     if income["status"] == "fail": reasons.append(income["reason"])
-    if income["status"] == "intake_missing": reasons.append(income["reason"])
+    if income["status"] == "intake_missing": unknowns.append(income["reason"])
+    if income.get("policy_status") == "absent": clarifications.append("Income policy metadata absent; existing salary records used without fabricating confirmation")
     observed = max(role["status_observations"], key=lambda r: cs.timestamp(r["at"]))
     if role["kind"] != "company_outreach" and observed["status"] != "open": unknowns.append("Current opening not verified")
-    policy = state["search_config"].get("income_policy", {})
-    if role["kind"] not in policy.get("case_types", []): reasons.append("Case type is outside the confirmed search scope")
-    for key in ("employment_type", "weekly_hours"):
-        actual = role.get(key, case["compensation"].get(key))
-        if actual is not None and policy.get(key) is not None and actual != policy[key]:
-            reasons.append("Observed work basis differs from confirmed search basis: " + key)
+    policy = state["search_config"].get("income_policy") or {}
+    scope = case_scope(state, role["kind"])
+    if scope["status"] == "excluded": reasons.append("Case type is outside the explicitly recorded search scope")
+    elif scope["status"] == "not_normalized": clarifications.append("Case types not normalized; reuse existing authorized scope without inventing a restriction or confirmation")
     if case["novelty"].get("uncertain_company_contacts"): reasons.append("Unscoped prior company contact needs reconciliation")
-    conditions = {r["meaning"]: r for r in case["conditions"]}
-    for constraint in state["search_config"]["constraints"]:
-        assessment = conditions.get(constraint["meaning"])
-        if constraint["priority"] != "hard": continue
-        if constraint["status"] != "known" or not assessment:
-            unknowns.append("Constraint unresolved: " + constraint["meaning"]); continue
+    handled = set()
+    def evaluate(meaning, constraint, assessment):
+        if meaning in OPERATIONS_ONLY or meaning in SCOPE_KEYS or meaning == "company.exclusions": return
+        dimension = condition_dimension(constraint)
+        if constraint.get("applies_to") == "management" or dimension == "management_language":
+            track = role_track(role)
+            if track == "individual_contributor": return
+            if track == "unknown":
+                unknowns.append("Management criterion applicability not established: " + meaning); return
+        if constraint.get("applies_to") == "individual_contributor":
+            track = role_track(role)
+            if track == "management": return
+            if track == "unknown":
+                unknowns.append("Individual-contributor criterion applicability not established: " + meaning); return
+        if meaning == "work.residence" and not assessment:
+            clarifications.append("Residence is user context; geographic eligibility remains to be checked"); return
+        if constraint.get("status", "known") != "known" or not assessment:
+            unknowns.append("Constraint unresolved: " + meaning); return
         outcome = assessment["outcome"]
-        if assessment["evidence_kind"] in {"posting_language", "inference"}: outcome = "unknown"
-        if outcome == "fail": reasons.append("Hard constraint failed: " + constraint["meaning"])
-        elif outcome == "unknown": unknowns.append("Hard constraint unknown: " + constraint["meaning"])
+        if assessment.get("verification") == "unverified":
+            unknowns.append("Unverified requirement; not an established hard failure: " + meaning); return
+        if assessment["evidence_kind"] in {"posting_language", "inference"} or assessment.get("verification") == "unverified": outcome = "unknown"
+        if outcome == "fail":
+            if verified_failure(state, assessment): reasons.append("Hard constraint failed: " + meaning)
+            else: unknowns.append("Unverified requirement; not an established hard failure: " + meaning)
+        elif outcome == "unknown": unknowns.append("Hard constraint unknown: " + meaning)
+    for constraint in state["search_config"]["constraints"]:
+        if constraint["priority"] != "hard": continue
+        assessment = constraint_match(constraint, case["conditions"])
+        if assessment: handled.add(assessment["meaning"])
+        evaluate(constraint["meaning"], constraint, assessment)
     for condition in case["conditions"]:
-        if condition.get("priority") != "hard" or condition["meaning"] in {c["meaning"] for c in state["search_config"]["constraints"]}: continue
-        outcome = condition["outcome"]
-        if condition["evidence_kind"] in {"posting_language", "inference"}: outcome = "unknown"
-        if outcome == "fail": reasons.append("Essential requirement failed: " + condition["meaning"])
-        elif outcome == "unknown": unknowns.append("Essential requirement unknown: " + condition["meaning"])
+        if condition.get("priority") in {"preference", "negotiable"} and condition_dimension(condition) == "contract_arrangement" and condition["outcome"] == "unknown":
+            clarifications.append("Contract arrangement remains a recorded negotiation clarification: " + condition["meaning"])
+        if condition.get("priority") != "hard" or condition["meaning"] in handled: continue
+        evaluate(condition["meaning"], condition, condition)
     guard = cs.reapplication_guard(state, role["id"])
     if guard["requires_review"]: reasons.append("Prior submission/identity needs reconciliation")
     company = next(r for r in state["companies"] if r["id"] == role["company_id"])
@@ -210,16 +295,20 @@ def readiness(state, case):
     for field in form["fields"]:
         if field.get("control") == "url" and field.get("answer") and not public_destination(field["answer"]):
             unknowns.append("Destination is not a public HTTP(S) URL: " + field["id"])
+        if field.get("is_consent"):
+            pending_consents.append(field["id"])
+            continue
         if not field.get("required"): continue
         complete = field.get("answer_state") == "confirmed" and bool(field.get("confirmation_evidence")) and field.get("answer") is not None and field.get("answer") != ""
         if field.get("answer_id"):
             matches = cs.lookup_answer(state, field["answer_query"], case["at"]) if field.get("answer_query") else []
             complete = any(r["id"] == field["answer_id"] and cs.canonical_json(r["value"]) == cs.canonical_json(field.get("answer")) for r in matches)
-        if not complete or field.get("is_consent"):
-            unknowns.append("Required answer/consent unresolved: " + field["id"])
+        if not complete:
+            unknowns.append("Required factual answer unresolved: " + field["id"])
     if income["status"] in {"unknown", "estimated_compatible"} and policy.get("unknown_salary", "include") == "exclude": reasons.append("User explicitly excluded unconfirmed pay")
     return {"status": "blocked" if reasons else "conditional" if unknowns else "ready_with_pay_uncertainty" if income["status"] in {"unknown", "estimated_compatible"} else "ready", "blockers": reasons,
-            "unknowns": unknowns, "income": income}
+            "unknowns": unknowns, "clarifications": clarifications, "pending_consents": pending_consents,
+            "draft_ready": not reasons and not unknowns, "submission_authorized": False, "scope": scope, "income": income}
 
 
 def prepare_case(state_path, workspace, request, expected_revision, requested=1):
@@ -327,7 +416,7 @@ def verify_case(state, workspace, case_id):
         for destination in re.findall(r"\]\(([^)]+)\)", text):
             if not public_destination(destination) and not re.fullmatch(r"mailto:[^\s@]+@[^\s@]+", destination): bad_links.append(pin["slot"] + ": " + destination)
     if bad_links:
-        assessment = {**assessment, "status": "blocked" if assessment["status"] == "blocked" else "conditional", "unknowns": [*assessment["unknowns"], "Final Markdown contains a local/unsafe destination; verify before sharing"], "link_issues": bad_links}
+        assessment = {**assessment, "draft_ready": False, "status": "blocked" if assessment["status"] == "blocked" else "conditional", "unknowns": [*assessment["unknowns"], "Final Markdown contains a local/unsafe destination; verify before sharing"], "link_issues": bad_links}
     return assessment
 
 
@@ -348,7 +437,7 @@ def case_report(state_path, workspace, batch_id, requested):
             role = next(r for r in state["opportunities"] if r["id"] == case["opportunity_id"])
             company = next(c for c in state["companies"] if c["id"] == role["company_id"])
             seen = novelty(state, workspace, {**role, "company_name": company["name"]}, case["registry_paths"], ignore_case=case)
-            if seen["status"] != "new" or seen["uncertain_company_contacts"]: check = {**check, "status": "blocked", "novelty": seen}
+            if seen["status"] != "new" or seen["uncertain_company_contacts"]: check = {**check, "draft_ready": False, "status": "blocked", "novelty": seen}
             if check["status"] in {"ready", "ready_with_pay_uncertainty"} and current_view: counted.add(case["opportunity_id"])
             results.append({"id": case["id"], "opportunity_id": case["opportunity_id"], **check})
         except (cs.Invalid, OSError, ValueError, StopIteration, KeyError) as error:
