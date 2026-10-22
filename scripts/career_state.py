@@ -497,6 +497,15 @@ def validate(state):
         elif row.get("confirmed_at") is not None:
             timestamp(row["confirmed_at"])
         require(type(row.get("is_consent")) is bool, "Explicit consent classification required")
+        if row["meaning"] == "contact.phone.preference":
+            choice = row["value"]
+            require(row["scope"] == {"purpose": "application"} and row["units"] == {},
+                    "Phone preference requires exact application purpose scope and no units")
+            require(isinstance(choice, dict) and set(choice) == {"disposition", "value"} and
+                    choice["disposition"] in {"use", "omit", "unknown"}, "Phone preference needs use/omit/unknown and value")
+            require((choice["disposition"] == "use" and isinstance(choice["value"], str) and
+                     8 <= len(re.sub(r"\D", "", choice["value"])) <= 15) or
+                    (choice["disposition"] != "use" and choice["value"] is None), "Use a supported phone or an explicit omit/unknown choice")
         if row["meaning"].startswith("compensation."):
             require(all(row["units"].get(key) for key in ("currency", "basis", "period")),
                     "Compensation answer requires currency, gross/net basis and period")

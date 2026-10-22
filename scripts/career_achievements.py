@@ -85,6 +85,7 @@ def clarify(state, request):
 
 def evidence_input_digest(state):
     inputs = {"facts": state["facts"], "achievements": state.get("achievement_evidence", []),
+              "clarifications": state["profile"]["metric_dispositions"],
               "career_sources": [s for s in state["sources"] if s.get("purpose") == "career_evidence" or
                                  any(s["id"] in f["source_ids"] for f in state["facts"])]}
     return cs.hashlib.sha256(cs.canonical_json(inputs).encode()).hexdigest()

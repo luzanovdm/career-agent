@@ -99,7 +99,7 @@ def write_portal(destination, metadata, records):
         raise
 
 
-def export_portal(state_path, workspace, batch_id, destination=None):
+def export_portal(state_path, workspace, batch_id, destination=None, case_ids=None):
     root = cs.private_path(workspace).resolve()
     cs.require(root in Path(state_path).resolve().parents, 'State must belong to the selected private workspace')
     state_path = cs.private_path(state_path)
@@ -108,7 +108,17 @@ def export_portal(state_path, workspace, batch_id, destination=None):
     fingerprint = hashlib.sha256(source_bytes).hexdigest()
     def require_current():
         cs.require(state_path.read_bytes() == source_bytes, 'State changed during portal export; regenerate from the current revision')
-    report = search.case_report(state_path, root, batch_id, 1)
+    if case_ids is None:
+        report = search.case_report(state_path, root, batch_id, 1)
+    else:
+        cs.require(isinstance(case_ids, list) and bool(case_ids) and len(case_ids) == len(set(case_ids)), 'Select distinct canonical cases')
+        selected = [c for c in state.get('search_cases', []) if c['id'] in case_ids]
+        cs.require(len(selected) == len(case_ids), 'Selected portal contains an unmapped case; retain it as incomplete in the delivery receipt')
+        reports = [search.case_report(state_path, root, b, 1) for b in sorted({c['batch_id'] for c in selected})]
+        checks = [check for report in reports for check in report['cases'] if check['id'] in case_ids]
+        ready = sum(check['status'] in {'ready', 'ready_with_pay_uncertainty'} for check in checks)
+        report = {'cases': checks, 'view_current': all(item['view_current'] for item in reports),
+                  'shortfall': len(case_ids)-ready, 'completed': ready == len(case_ids) and all(item['view_current'] for item in reports)}
     require_current()
     identity_path = cm.inside(root, 'Data/portal-identity.json')
     if identity_path.exists():
@@ -131,7 +141,7 @@ def export_portal(state_path, workspace, batch_id, destination=None):
     def records():
         require_current()
         for case in state.get('search_cases', []):
-            if case['batch_id'] != batch_id: continue
+            if (case_ids is None and case['batch_id'] != batch_id) or (case_ids is not None and case['id'] not in case_ids): continue
             role = roles[case['opportunity_id']]; check = assessed[case['id']]
             status = check['status'] if report['view_current'] else 'incomplete: spreadsheet snapshot not current'
             detail = {'id': hashlib.sha256(case['id'].encode()).hexdigest(), 'opportunity_id': role['id'],

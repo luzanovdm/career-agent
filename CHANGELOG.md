@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.1
+
+- Consolidate source clarification, adaptation, verification and delivery into one packet workflow.
+- Refresh saved unsent packets as immutable versions while preserving prior and submitted materials.
+- Retain clarified achievements, secondary metrics and current contact preferences across selected packets.
+- Deliver the same verified current Markdown content in chat, portal and archive; report failed edits and incomplete checks truthfully.
+
+Candidate schema version 1 remains compatible. No private data migration, research or submission occurs during updates. Content checks support evidence review; they do not guarantee editorial quality or host compliance.
+
 ## 0.2.0
 
 - Add a fixed local application portal using the approved list/editor design, paged JSON and lazy packet loading; retain XLSX/CSV.

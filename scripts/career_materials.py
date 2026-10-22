@@ -67,6 +67,46 @@ def material_file(workspace, material):
     return path
 
 
+def phone_field(field):
+    return field.get("meaning") == "contact.phone" or field.get("control") == "tel" or bool(re.search(r"phone|mobile|telephone|телефон|мобильный", field.get("label", ""), re.I))
+
+
+def review_phone(state, texts, fields=(), at=None):
+    """Historical CV contact data is evidence, not an active application-contact choice."""
+    observed = set()
+    for text in texts:
+        international = list(re.finditer(r"(?<![\w])\+\d[\d ()-]{6,}\d(?![\w])", text))
+        values = [match.group() for match in international]
+        patterns = (r"(?i)tel:([+\d][\d(). -]{6,}\d)",
+                    r"(?i)(?:phone|mobile|telephone|телефон|мобильный|☎|📞)\s*[:=]?\s*([+\d(][\d(). -]{6,}\d)",
+                    r"(?<!\d)(\(\d{3}\)\s*\d{3}[- .]?\d{4}|\d{3}[- .]\d{3}[- .]\d{4})(?!\d)")
+        for pattern in patterns:
+            for match in re.finditer(pattern, text):
+                start, end = match.span(1)
+                if any(start >= full.start() and end <= full.end() for full in international): continue
+                values.append(match.group(1))
+        for value in values:
+            digits = re.sub(r"\D", "", value)
+            if 8 <= len(digits) <= 15: observed.add(digits)
+    for field in fields:
+        if phone_field(field):
+            if field.get("answer") not in (None, ""):
+                digits = re.sub(r"\D", "", str(field["answer"]))
+                if digits: observed.add(digits)
+    answers = cs.lookup_answer(state, {"meaning": "contact.phone.preference", "scope": {"purpose": "application"}, "units": {}}, at or cs.utcnow())
+    choice = answers[0]["value"] if answers else None
+    disposition = choice.get("disposition") if isinstance(choice, dict) else None
+    issues = []
+    if observed:
+        if disposition == "omit": issues.append("Phone is visible despite the current user choice to omit it")
+        elif disposition == "use":
+            expected = re.sub(r"\D", "", choice.get("value", ""))
+            if observed != {expected}: issues.append("Visible phone differs from the current confirmed application contact")
+        else: issues.append("Phone contact preference is unresolved; historical document data alone is not a current choice")
+    return {"ready": not issues, "issues": issues, "answer_id": answers[0]["id"] if answers else None,
+            "question_needed": bool(observed and not answers), "disposition": disposition or "unconfirmed"}
+
+
 def register_material(state_path, workspace, request, input_path, expected_revision):
     workspace = cs.private_path(workspace).resolve()
     cs.require(workspace in Path(state_path).resolve().parents, "State must belong to the chosen private workspace")
@@ -217,6 +257,15 @@ def package_attempt(state, workspace, attempt_id, slots, destination, as_of):
         path = material_file(workspace, material)
         raw = path.read_bytes()
         cs.require(sha256(raw) == pin["sha256"], "Pinned material changed during packaging")
+        if material["kind"] == "resume" and state.get("achievement_evidence"):
+            import career_achievements as achievements
+            text = raw.decode("utf-8") if path.suffix in {".md", ".txt"} else material.get("extracted_text")
+            cs.require(isinstance(text, str) and text.strip(), "Readable resume text required before outgoing packaging")
+            check = achievements.require_resume_audit(state, text, material, required=True)
+            cs.require(check["ready"], "Resume adaptation review is conditional/stale; keep draft private and review before packaging")
+        if path.suffix in {".md", ".txt"}:
+            cs.require(review_phone(state, [raw.decode("utf-8")], at=as_of)["ready"],
+                       "Application phone differs from or lacks the current confirmed contact choice")
         member_name = cs.validate_slot(slot) + path.suffix
         cs.require(PurePosixPath(member_name).name == member_name and "\\" not in member_name, "Package member must be a flat safe filename")
         selected.append((member_name, raw, {"slot": slot, "material_id": material["id"], "version": pin["version"], "sha256": pin["sha256"]}))

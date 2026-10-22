@@ -29,3 +29,5 @@ Include search-case batch IDs, initial novelty evidence/registry hashes and cove
 Include the verbatim achievement inventory, source metric spans/units/attribution, versioned meaning interpretations, grouped clarification dispositions and per-target adaptation audits in private handoffs. They stay separate from external document text; historical versions remain immutable. See [achievement adaptation](achievement-adaptation.md).
 
 The optional local HTML portal uses one bundled fixed template and paged JSON data; XLSX/CSV remain supported. It is a generated private snapshot with separately exported browser notes, never a competing campaign database. See [portal workflow](portal.md).
+
+Current packet selection and refresh/delivery receipts follow [packets](packets.md#prepare-refresh-and-deliver). Include the recorded scope, selected hashes and content-review status in handoff. Historical source folders and incidental chat exports remain distinct from the confirmed active workspace.

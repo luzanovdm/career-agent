@@ -11,6 +11,7 @@ from pathlib import Path
 import re
 import sys
 import tempfile
+import zipfile
 from urllib.parse import urlsplit
 
 import career_state as cs
@@ -237,7 +238,7 @@ def readiness(state, case):
     if any(b["id"] == case["batch_id"] for b in state.get("search_batches", [])):
         preparation = [p for p in state["interview_prep"] if p["opportunity_id"] == role["id"] and ("interview_prep_ids" not in case or p["id"] in case["interview_prep_ids"])]
         if not preparation or any(p.get("review_required") for p in preparation): unknowns.append("Saved interview preparation is missing or requires review; continue preparing materials, not a live drill")
-    if case["novelty"]["status"] != "new": reasons.append("Not a verified new case")
+    if case["novelty"]["status"] != "new" and case.get("packet_purpose") != "existing_review": reasons.append("Not a verified new case")
     company = next(c for c in state["companies"] if c["id"] == role["company_id"])
     excluded = state["search_config"].get("excluded_companies", [])
     for constraint in state["search_config"]["constraints"]:
@@ -318,8 +319,8 @@ def readiness(state, case):
 
 
 def preparation_identity(request):
-    """Document/audit refinements cannot change opportunity, scope or selection evidence."""
-    return cm.sha256(cs.canonical_json({k: v for k, v in request.items() if k not in {"documents", "resume_reference", "at", "revision_reason", "interview_preparation"}}).encode())
+    """Keep opportunity/scope evidence stable; form observations are versioned independently."""
+    return cm.sha256(cs.canonical_json({k: v for k, v in request.items() if k not in {"documents", "resume_reference", "at", "revision_reason", "interview_preparation", "form"}}).encode())
 
 
 def begin_batch(state, request):
@@ -332,18 +333,120 @@ def begin_batch(state, request):
     return cs.add_record(state, "search_batches", request)
 
 
-def prepare_case(state_path, workspace, request, expected_revision, requested=1, discovery_only=False):
+def packet_evidence_digest(state):
+    """Inputs that can change wording across every slot, independent of report/control revisions."""
+    import career_achievements as achievements
+    return cm.sha256(cs.canonical_json({
+        "extraction": achievements.evidence_input_digest(state),
+        "interpretations": state.get("achievement_interpretations", []),
+        "profile": state["profile"],
+        "credentials": state.get("credentials", []),
+        "context_insights": state.get("context_insights", []),
+        "contact_answers": [a for a in state["answers"] if a["meaning"].startswith("contact.")],
+    }).encode())
+
+
+def form_answer_markdown(form):
+    """Project a changed form-answer observation rather than retaining a contradictory text copy."""
+    lines = ["# Application form answers", "", "Observed form: " + form["status"] + "; source date: " + form["at"],
+             "Preparation only. Consent pending is not acceptance."]
+    for field in form["fields"]:
+        lines.extend(["", "## " + field["label"], "Required: " + ("yes" if field["required"] else "no"),
+                      "Control: " + field["control"], "Answer state: " + field.get("answer_state", "unknown")])
+        if field.get("is_consent"): lines.append("Answer: fresh explicit choice required; no agreement accepted.")
+        else: lines.append("Answer: " + json.dumps(field.get("answer"), ensure_ascii=False))
+        if field.get("help_text"): lines.append("Help: " + field["help_text"])
+        if field.get("choices"): lines.append("Observed choices: " + json.dumps(field["choices"], ensure_ascii=False))
+    return "\n\n".join(lines) + "\n"
+
+
+def expand_packet_edit(state, workspace, edit):
+    """Reuse canonical case metadata and retained bytes, so an edit needs no reconstructed search request."""
+    cs.validate_shape(edit, cs.state_schema()["$defs"]["packet_edit"], cs.state_schema(), "packet edit")
+    case = next((c for c in state.get("search_cases", []) if c["id"] == edit["case_id"]), None)
+    cs.require(case is not None and case["attempt_id"], "Map the selected legacy packet to an exact saved case before editing")
+    role = next(o for o in state["opportunities"] if o["id"] == case["opportunity_id"])
+    company = next(c for c in state["companies"] if c["id"] == role["company_id"])
+    previous_form = next(f for f in state["forms"] if f["id"] == case["form_id"])
+    form = copy.deepcopy(edit.get("form") or previous_form)
+    query = {"meaning": "contact.phone.preference", "scope": {"purpose": "application"}, "units": {}}
+    answers = cs.lookup_answer(state, query, edit["at"])
+    if answers:
+        answer = answers[0]; choice = answer["value"]
+        for field in form["fields"]:
+            if not cm.phone_field(field) or field.get("is_consent"): continue
+            field.update(answer=choice["value"], answer_state="confirmed" if choice["disposition"] == "use" else
+                         "not_applicable" if choice["disposition"] == "omit" and not field["required"] else "unknown",
+                         confirmation_evidence=answer["confirmation_evidence"])
+            field.pop("answer_id", None); field.pop("answer_query", None)
+    attempt = next(a for a in state["application_attempts"] if a["id"] == case["attempt_id"])
+    cm.verify_attempt(state, workspace, attempt)
+    documents, reference = {}, None
+    for pin in attempt["materials"]:
+        slot = pin["slot"]
+        if slot == "resume" and case.get("reference_resume_id"):
+            reference = copy.deepcopy(case["resume_review"]); continue
+        material = next(m for m in state["materials"] if m["id"] == pin["material_id"])
+        path = cm.material_file(workspace, material)
+        cs.require(path.suffix == ".md", "Read the existing binary through the host and choose a reviewed reference or Markdown replacement")
+        document = {"text": path.read_bytes().decode("utf-8"), "language": material["language"],
+                    "fact_ids": list(material["fact_ids"]), "source_ids": list(material["source_ids"])}
+        audit = material.get("adaptation_audit", material.get("unverified_adaptation_audit"))
+        if audit: document["adaptation_audit"] = copy.deepcopy(audit)
+        if slot == "dossier":
+            rows = [p for p in state["interview_prep"] if p["id"] in case.get("interview_prep_ids", [])]
+            generated = interview_markdown(rows)
+            if document["text"].endswith(generated): document["text"] = document["text"][:-len(generated)]
+        documents[slot] = document
+    if form != previous_form and "form-answers" not in edit.get("documents", {}):
+        documents["form-answers"]["text"] = form_answer_markdown(form)
+    documents.update(copy.deepcopy(edit.get("documents", {})))
+    if "resume" in edit.get("documents", {}): reference = None
+    if edit.get("resume_reference"):
+        reference = copy.deepcopy(edit["resume_reference"]); documents.pop("resume", None)
+    source_ids = set(role["source_ids"]) | set(form["source_ids"])
+    request = {"id": case["id"], "batch_id": case["batch_id"], "requested_new": case["requested_new"],
+        "at": edit["at"], "revision_reason": edit["reason"], "company": copy.deepcopy(company),
+        "opportunity": {k:v for k,v in role.items() if k not in {"fit_summary", "fit_assessment", "pay_summary", "next_action"}},
+        "sources": [copy.deepcopy(s) for s in state["sources"] if s["id"] in source_ids], "form": copy.deepcopy(form),
+        "compensation": copy.deepcopy(case["compensation"]), "conditions": copy.deepcopy(case["conditions"]),
+        "registry_paths": list(case["registry_paths"]), "fit_summary": cs.fit_display(role), "documents": documents}
+    if reference: request["resume_reference"] = reference
+    if "interview_preparation" in edit: request["interview_preparation"] = copy.deepcopy(edit["interview_preparation"])
+    return request
+
+
+def same_refresh_context(state, case, request):
+    """Content edits retain exact opportunity identity, constraints and search scope."""
+    role = next(o for o in state["opportunities"] if o["id"] == case["opportunity_id"])
+    form = next(f for f in state["forms"] if f["id"] == case["form_id"])
+    cs.require(all(request["opportunity"][k] == role[k] for k in ("id", "identity", "role_url", "company_id", "kind")) and
+               request["company"]["id"] == role["company_id"] and request["batch_id"] == case["batch_id"] and
+               request["form"]["opportunity_id"] == role["id"] and request["compensation"] == case["compensation"] and
+               request["conditions"] == case["conditions"] and request.get("registry_paths", []) == case["registry_paths"],
+               "Content refresh preserves exact role identity, constraints, scope and registry coverage")
+
+
+def prepare_case(state_path, workspace, request, expected_revision, requested=1, discovery_only=False, refresh=False):
     """Save a case reservation first; partial failures remain visible and never fill quota."""
     workspace = cs.private_path(workspace).resolve()
     cs.require(workspace in Path(state_path).resolve().parents, "State must belong to the selected workspace")
+    if refresh and "case_id" in request: request = expand_packet_edit(cs.read_state(state_path), workspace, request)
     cs.validate_shape(request, cs.state_schema()["$defs"]["search_case_discovery" if discovery_only else "search_case_request"], cs.state_schema(), "case request")
     request = copy.deepcopy(request)
+    saved_form = next((f for f in cs.read_state(state_path)["forms"] if f["id"] == request["form"]["id"]), None)
+    if saved_form is not None and saved_form != request["form"]:
+        previous_id = request["form"]["id"]
+        request["form"]["id"] = "form-" + cm.sha256(cs.canonical_json(request["form"]).encode())[:32]
+        request["form"]["supersedes_form_id"] = previous_id
     if discovery_only: request["documents"] = {}
+    cs.require(not refresh or (not discovery_only and bool(request.get("revision_reason", "").strip())),
+               "Refreshing a saved packet requires a reviewed revision reason")
     fingerprint = cm.sha256(cs.canonical_json(request).encode())
     def reserve(state):
         existing = next((r for r in state.get("search_cases", []) if r["id"] == request["id"]), None)
         if existing:
-            if existing["request_sha256"] == fingerprint: return state
+            if existing["request_sha256"] == fingerprint and not refresh: return state
             if existing["phase"] == "discovered" and not discovery_only:
                 role = next(r for r in state["opportunities"] if r["id"] == existing["opportunity_id"])
                 cs.require(all(request["opportunity"][k] == role[k] for k in ("id", "identity", "role_url", "company_id", "kind")) and
@@ -363,10 +466,13 @@ def prepare_case(state_path, workspace, request, expected_revision, requested=1,
                 candidate["change_history"].append({"operation": "promote_discovery_to_preparation", "at": cs.utcnow(), "reason": "Prepare the saved discovery without counting it as a second opportunity",
                     "revision_from": state["revision"], "request": {"case_id": record["id"]}, "before": copy.deepcopy(existing), "after": copy.deepcopy(record)})
                 return cs.validate(candidate)
-            cs.require(existing["phase"] == "preparing", "Completed case request is immutable; preserve its packet")
-            cs.require(not any(a["opportunity_id"] == existing["opportunity_id"] and a["outcome"] in {"sent", "uncertain"} for a in state["attempts"]), "Submission history prevents revising this preparation")
+            cs.require(existing["phase"] == "preparing" or (refresh and existing["phase"] == "saved"),
+                       "Use explicit refresh-case for a saved packet; preserve its historical versions")
+            cs.require(not cs.reapplication_guard(state, existing["opportunity_id"])["requires_review"], "Submission history prevents revising this preparation")
             identity = preparation_identity(request)
-            if existing.get("preparation_identity_sha256"):
+            if refresh:
+                same_refresh_context(state, existing, request)
+            elif existing.get("preparation_identity_sha256"):
                 cs.require(existing["preparation_identity_sha256"] == identity, "Preparation revision can change documents/audit only; preserve identity and scope")
             else:
                 # Recover older interrupted v1 reservations without treating their own role as new.
@@ -379,17 +485,31 @@ def prepare_case(state_path, workspace, request, expected_revision, requested=1,
                            request["compensation"] == existing["compensation"] and request["conditions"] == existing["conditions"] and
                            request.get("registry_paths", []) == existing["registry_paths"], "Legacy preparation revision must retain its exact role, form, evidence and scope")
             candidate = copy.deepcopy(state)
+            for source in request["sources"]: candidate = cs.add_record(candidate, "sources", source)
+            observation = next((f for f in candidate["forms"] if f["id"] == request["form"]["id"]), None)
+            if observation: cs.require(observation == request["form"], "Form observation ID has different content; preserve history")
+            else: candidate = cs.add_record(candidate, "forms", request["form"])
             record = next(r for r in candidate["search_cases"] if r["id"] == request["id"])
             before = copy.deepcopy(record)
             record.update(request_sha256=fingerprint, preparation_identity_sha256=identity,
                           preparation_revision=record.get("preparation_revision", 1) + 1, at=request["at"],
-                          reference_resume_id=request.get("resume_reference", {}).get("material_id"))
+                          reference_resume_id=request.get("resume_reference", {}).get("material_id"),
+                          phase="preparing", draft_errors=[], form_id=request["form"]["id"])
+            record.pop("packet_evidence_sha256", None)
             if request.get("resume_reference"): record["resume_review"] = copy.deepcopy(request["resume_reference"])
             else: record.pop("resume_review", None)
-            candidate["change_history"].append({"operation": "revise_case_preparation", "at": cs.utcnow(),
+            candidate["change_history"].append({"operation": "refresh_saved_packet" if refresh else "revise_case_preparation", "at": cs.utcnow(),
                 "reason": request.get("revision_reason", "Revised unsent preparation documents/audit"), "revision_from": state["revision"],
                 "request": {"case_id": record["id"], "request_sha256": fingerprint}, "before": before, "after": copy.deepcopy(record)})
             return cs.validate(candidate)
+        if refresh:
+            known = next((o for o in state["opportunities"] if exact_match(request["opportunity"], o)), None)
+            cs.require(known is not None and known["id"] == request["opportunity"]["id"],
+                       "Refresh requires an existing exact opportunity; it never reserves a new opportunity")
+            cs.require(all(request["opportunity"][k] == known[k] for k in ("identity", "role_url", "company_id", "kind")),
+                       "Refresh must retain canonical exact-role identity")
+            cs.require(not cs.reapplication_guard(state, known["id"])["requires_review"],
+                       "Prior sent/uncertain/bounced history must be reconciled; preserve its pinned packet")
         candidate = copy.deepcopy(state)
         seen = novelty(state, workspace, {**request["opportunity"], "company_name": request["company"]["name"]}, request.get("registry_paths", []))
         for source in request["sources"]: candidate = cs.add_record(candidate, "sources", source)
@@ -400,7 +520,9 @@ def prepare_case(state_path, workspace, request, expected_revision, requested=1,
         if old:
             cs.require(old["id"] == role["id"], "Reuse the canonical exact-role ID for a known role")
         else: candidate = cs.add_record(candidate, "opportunities", role)
-        candidate = cs.add_record(candidate, "forms", request["form"])
+        saved_form = next((f for f in candidate["forms"] if f["id"] == request["form"]["id"]), None)
+        if saved_form: cs.require(saved_form == request["form"], "Preserve the earlier form; use a new observation ID for changed fields")
+        else: candidate = cs.add_record(candidate, "forms", request["form"])
         record = {"id": request["id"], "batch_id": request["batch_id"], "opportunity_id": role["id"],
                   "at": request["at"], "requested_new": max(request["requested_new"], requested), "request_sha256": fingerprint, "novelty": seen, "phase": "discovered" if discovery_only else "preparing",
                   "form_id": request["form"]["id"], "compensation": request["compensation"], "conditions": request["conditions"],
@@ -408,7 +530,13 @@ def prepare_case(state_path, workspace, request, expected_revision, requested=1,
                   "reference_resume_id": request.get("resume_reference", {}).get("material_id"),
                   "preparation_identity_sha256": preparation_identity(request), "preparation_revision": 1, "draft_errors": []}
         if request.get("resume_reference"): record["resume_review"] = copy.deepcopy(request["resume_reference"])
-        return cs.add_record(candidate, "search_cases", record)
+        if refresh: record["packet_purpose"] = "existing_review"
+        candidate = cs.add_record(candidate, "search_cases", record)
+        if refresh:
+            candidate["change_history"].append({"operation": "register_existing_packet_review", "at": cs.utcnow(),
+                "reason": request["revision_reason"], "revision_from": state["revision"],
+                "request": {"case_id": record["id"]}, "before": None, "after": copy.deepcopy(record)})
+        return cs.validate(candidate)
     state = cs.transact(state_path, reserve, expected_revision)
     if request.get("interview_preparation"):
         def save_preparation(current):
@@ -432,7 +560,7 @@ def prepare_case(state_path, workspace, request, expected_revision, requested=1,
     if discovery_only:
         return {"saved": True, "completed": False, "case_id": case["id"], "status": "discovered", "missing_packet_slots": sorted(SLOTS),
                 "next_action": "Prepare Markdown resume/reference, cover, dossier and observed form answers; discovery alone is not ready"}
-    if case["novelty"]["status"] != "new":
+    if case["novelty"]["status"] != "new" and not refresh:
         return {"saved": True, "completed": False, "assessment": readiness(state, case), "novelty": case["novelty"]}
     cs.require("resume" in request["documents"] or request.get("resume_reference"), "A Markdown resume or approved unchanged resume reference is required")
     selections, draft_errors, resume_result = [], [], None
@@ -453,7 +581,8 @@ def prepare_case(state_path, workspace, request, expected_revision, requested=1,
             document = copy.deepcopy(document)
             if slot == "dossier" and any(b["id"] == case["batch_id"] for b in state.get("search_batches", [])):
                 prepared = [p for p in state["interview_prep"] if p["id"] in case.get("interview_prep_ids", [])]
-                document["text"] += interview_markdown(prepared)
+                generated_preparation = interview_markdown(prepared)
+                if not document["text"].endswith(generated_preparation): document["text"] += generated_preparation
                 document["fact_ids"] = sorted(set(document["fact_ids"]) | {f for p in prepared for f in p["fact_ids"]})
                 document["source_ids"] = sorted(set(document["source_ids"]) | {s for p in prepared for s in p["source_ids"]})
             cs.require(slot in SLOTS and (slot != "resume" or not request.get("resume_reference")), "Distinct document slot required")
@@ -490,7 +619,14 @@ def prepare_case(state_path, workspace, request, expected_revision, requested=1,
     def finish(current):
         candidate = copy.deepcopy(current)
         record = next(r for r in candidate["search_cases"] if r["id"] == request["id"])
-        record.update(phase="preparing" if draft_errors or (resume_result and not resume_result["ready"]) else "saved", attempt_id=attempt_id, draft_errors=list(draft_errors))
+        previous_selection = copy.deepcopy(record)
+        record.update(phase="preparing" if draft_errors or (resume_result and not resume_result["ready"]) else "saved",
+                      attempt_id=attempt_id, draft_errors=list(draft_errors), packet_evidence_sha256=packet_evidence_digest(candidate))
+        if previous_selection != record:
+            candidate["change_history"].append({"operation": "select_packet_version", "at": cs.utcnow(),
+                "reason": request.get("revision_reason", "Select the saved reviewed/conditional packet version"),
+                "revision_from": current["revision"], "request": {"case_id": record["id"]},
+                "before": previous_selection, "after": copy.deepcopy(record)})
         attempt = next(a for a in candidate["application_attempts"] if a["id"] == attempt_id)
         for pin in attempt["materials"]:
             artifact_id = attempt_id + "-" + pin["slot"]
@@ -514,6 +650,9 @@ def prepare_case(state_path, workspace, request, expected_revision, requested=1,
         cs.require(view.get("written"), "Snapshot was not refreshed; preserve edited report")
     except (cs.Invalid, OSError, ValueError) as error:
         return {"saved": True, "completed": False, "view_refreshed": False, "error": str(error)}
+    if refresh:
+        return {"saved": True, "view_refreshed": True, "new_cases_counted": 0,
+                **deliver_packets(state_path, workspace, [request["id"]])}
     return {"saved": True, "view_refreshed": True, **case_report(state_path, workspace, request["batch_id"], max(request["requested_new"], requested))}
 
 
@@ -544,6 +683,10 @@ def verify_case(state, workspace, case_id):
             else:
                 achievement_review = achievements.require_resume_audit(state, cm.material_file(workspace, material).read_bytes().decode("utf-8"), material, required=True)
     assessment = readiness(state, case)
+    assessment["evidence_current"] = case.get("packet_evidence_sha256") == packet_evidence_digest(state)
+    if not assessment["evidence_current"]:
+        assessment.update(draft_ready=False, status="blocked" if assessment["status"] == "blocked" else "conditional",
+                          unknowns=[*assessment["unknowns"], "Packet predates current career evidence/clarifications or has no refresh receipt"])
     if case["phase"] == "preparing":
         assessment.update(draft_ready=False, status="blocked" if assessment["status"] == "blocked" else "conditional",
                           unknowns=[*assessment["unknowns"], "Saved preparation needs review/finalization"])
@@ -551,7 +694,20 @@ def verify_case(state, workspace, case_id):
         assessment["achievement_review"] = achievement_review
         if not achievement_review["ready"]:
             assessment.update(draft_ready=False, status="blocked" if assessment["status"] == "blocked" else "conditional",
-                              unknowns=[*assessment["unknowns"], "Source achievement clarification remains unresolved; draft saved for review"])
+                              unknowns=[*assessment["unknowns"], "Source achievement clarification remains unresolved; draft saved for review",
+                                        *achievement_review.get("errors", []),
+                                        *achievement_review.get("semantic_review", {}).get("issues", [])])
+    form = next(f for f in state["forms"] if f["id"] == case["form_id"])
+    external_texts = []
+    for pin in attempt["materials"]:
+        material = next(m for m in state["materials"] if m["id"] == pin["material_id"])
+        if pin["slot"] in {"resume", "cover-letter", "form-answers"}:
+            path = cm.material_file(workspace, material)
+            external_texts.append(path.read_text() if path.suffix == ".md" else material.get("extracted_text", ""))
+    assessment["contacts"] = cm.review_phone(state, external_texts, form["fields"])
+    if not assessment["contacts"]["ready"]:
+        assessment.update(draft_ready=False, status="blocked" if assessment["status"] == "blocked" else "conditional",
+                          unknowns=[*assessment["unknowns"], *assessment["contacts"]["issues"]])
     bad_links = []
     for pin in attempt["materials"]:
         material = next(m for m in state["materials"] if m["id"] == pin["material_id"])
@@ -564,6 +720,121 @@ def verify_case(state, workspace, case_id):
     return assessment
 
 
+def plan_refresh(state, request):
+    """Pin the requested review scope before editing; this never starts research or sending."""
+    cs.require(isinstance(request, dict) and set(request) == {"id", "at", "case_ids", "reason"}, "Refresh plan requires id, at, case_ids and reason")
+    cs.require(isinstance(request["id"], str) and request["id"].strip() and isinstance(request["reason"], str) and request["reason"].strip(), "Refresh ID and reason required")
+    cs.timestamp(request["at"])
+    ids = request["case_ids"]
+    cs.require(isinstance(ids, list) and bool(ids) and all(isinstance(i, str) and i for i in ids) and len(ids) == len(set(ids)), "Pin distinct requested packet IDs, including unresolved legacy entries")
+    old = next((h for h in state["change_history"] if h["operation"] == "plan_packet_refresh" and h["request"]["id"] == request["id"]), None)
+    if old:
+        cs.require(old["request"] == request, "Refresh scope is immutable; retain unresolved entries or record an explicitly revised plan")
+        return state
+    candidate = copy.deepcopy(state)
+    candidate["change_history"].append({"operation": "plan_packet_refresh", "at": request["at"], "reason": request["reason"],
+        "revision_from": state["revision"], "request": copy.deepcopy(request), "before": None,
+        "after": {"packet_evidence_sha256": packet_evidence_digest(state), "case_ids": list(ids)}})
+    return cs.validate(candidate)
+
+
+def deliver_packets(state_path, workspace, case_ids, refresh_id=None):
+    """Read the selected immutable versions, never a directory's newest filename or an ad hoc pointer."""
+    workspace = cs.private_path(workspace).resolve()
+    path = Path(state_path).resolve()
+    cs.require(workspace in path.parents, "State must belong to the selected workspace")
+    cs.require(isinstance(case_ids, list) and bool(case_ids) and all(isinstance(i, str) and i for i in case_ids)
+               and len(case_ids) == len(set(case_ids)), "Select explicit distinct case IDs for delivery coverage")
+    raw = path.read_bytes(); state = cs.validate(cs.strict_json_loads(raw))
+    if refresh_id is not None:
+        plan = next((h for h in state["change_history"] if h["operation"] == "plan_packet_refresh" and h["request"]["id"] == refresh_id), None)
+        cs.require(plan is not None and set(case_ids) == set(plan["request"]["case_ids"]), "Delivery must cover the whole recorded refresh scope, including unresolved packets")
+    rows = []
+    for identifier in case_ids:
+        row = {"id": identifier, "review_current": False, "ready_for_review": False, "documents": []}
+        try:
+            case = next(c for c in state.get("search_cases", []) if c["id"] == identifier)
+            row.update(opportunity_id=case["opportunity_id"], attempt_id=case["attempt_id"])
+            check = verify_case(state, workspace, identifier)
+            row["assessment"] = check
+            review_current = bool(check["evidence_current"] and case["phase"] == "saved" and
+                                          check.get("achievement_review", {}).get("ready") and check["contacts"]["ready"])
+            ready_for_review = bool(review_current and check["draft_ready"])
+            row["label"] = "Ready for review" if ready_for_review else "Saved draft — conditional/stale review"
+            attempt = next(a for a in state["application_attempts"] if a["id"] == case["attempt_id"])
+            for pin in attempt["materials"]:
+                material = next(m for m in state["materials"] if m["id"] == pin["material_id"])
+                document = cm.material_file(workspace, material); content = document.read_bytes()
+                cs.require(cm.sha256(content) == pin["sha256"], "Selected material changed during delivery readback")
+                row["documents"].append({"slot": pin["slot"], "material_id": material["id"], "sha256": cm.sha256(content),
+                    "path": str(document), "visibility": material["visibility"],
+                    "text": content.decode("utf-8") if document.suffix == ".md" else None})
+            row.update(review_current=review_current, ready_for_review=ready_for_review)
+        except (cs.Invalid, OSError, ValueError, StopIteration, KeyError) as error:
+            row.update(review_current=False, ready_for_review=False, label="Incomplete/unregistered packet — review required", error=str(error) or "No canonical case for selected ID")
+        rows.append(row)
+    cs.require(path.read_bytes() == raw, "State changed during delivery; read the selected versions again")
+    return {"workspace": str(workspace), "state_path": str(path), "revision": state["revision"], "state_sha256": cm.sha256(raw),
+            "selected": len(case_ids), "reviewed_current": sum(r["review_current"] for r in rows),
+            "ready_for_review": sum(r["ready_for_review"] for r in rows), "all_updated": all(r["review_current"] for r in rows),
+            "completed": all(r["ready_for_review"] for r in rows), "packets": rows, "sent": False}
+
+
+def export_delivery(state_path, workspace, request):
+    """One selected-version receipt supplies chat, fixed portal and private review archive."""
+    receipt = deliver_packets(state_path, workspace, request["case_ids"], request.get("refresh_id"))
+    formats = request.get("formats", [])
+    cs.require(isinstance(formats, list) and len(formats) == len(set(formats)) and set(formats) <= {"portal", "archive"},
+               "Delivery formats are portal and/or private archive")
+    if not formats: return receipt
+    cs.require(request.get("output_relative"), "Choose a private relative directory for the requested delivery")
+    destination = cm.inside(workspace, request["output_relative"])
+    cs.require(not destination.exists() and not destination.is_symlink(), "Preserve existing delivery; choose an absent versioned destination")
+    destination.mkdir(parents=True, mode=0o700)
+    outputs = {}
+    def require_current():
+        cs.require(cm.sha256(Path(state_path).read_bytes()) == receipt["state_sha256"], "State changed during handoff; preserve outputs and deliver the current selection again")
+    try:
+        require_current()
+        if "portal" in formats:
+            import career_portal as portal
+            view = snapshot.export_snapshot(state_path, workspace, cs.utcnow())
+            cs.require(view.get("written"), "Spreadsheet view not refreshed; preserve the edited view")
+            exported = portal.export_portal(state_path, workspace, "selected-packets",
+                request["output_relative"] + "/Portal", case_ids=request["case_ids"])
+            outputs["portal"] = exported["path"]
+        if "archive" in formats:
+            archive_path = destination / "Review-packets.zip"
+            with zipfile.ZipFile(archive_path, "x", compression=zipfile.ZIP_DEFLATED) as archive:
+                for packet in receipt["packets"]:
+                    folder = cm.component(packet.get("opportunity_id", packet["id"]), packet["id"])
+                    for document in packet["documents"]:
+                        require_current()
+                        selected = cm.inside(workspace, str(Path(document["path"]).resolve().relative_to(Path(workspace).resolve())))
+                        raw = selected.read_bytes()
+                        cs.require(cm.sha256(raw) == document["sha256"], "Selected document changed during archive readback")
+                        slot = cs.validate_slot(document["slot"])
+                        member = folder + "/" + ("PRIVATE/" if document["visibility"] == "private" else "") + slot + selected.suffix
+                        archive.writestr(member, raw)
+                archive.writestr("selection.json", json.dumps(receipt, indent=2))
+                archive.writestr("README.md", "# Private review packet snapshot\n\nContains private assessment/form records and saved drafts. Not an outgoing employer package or proof of sending. See selection.json for per-case review status and exact versions.\n")
+            outputs["archive"] = str(archive_path)
+        require_current()
+        result = {**receipt, "outputs": outputs, "delivered": True}
+        (destination / "delivery.json").write_text(json.dumps(result, indent=2) + "\n")
+        require_current()
+        return result
+    except (cs.Invalid, OSError, ValueError, KeyError) as error:
+        if (destination / "Portal" / "OPEN.html").exists():
+            import career_portal as portal
+            portal.mark_incomplete(destination / "Portal")
+        result = {**receipt, "completed": False, "delivered": False, "outputs": outputs,
+                  "presentation_error": str(error), "output_status": "Incomplete; preserved for inspection, not a current handoff"}
+        (destination / "INCOMPLETE.json").write_text(json.dumps(result, indent=2) + "\n")
+        if (destination / "delivery.json").exists(): (destination / "delivery.json").write_text(json.dumps(result, indent=2) + "\n")
+        return result
+
+
 def case_report(state_path, workspace, batch_id, requested):
     cs.require(type(requested) is int and requested > 0, "Positive requested new-case count required")
     state = cs.read_state(state_path)
@@ -573,7 +844,7 @@ def case_report(state_path, workspace, batch_id, requested):
     results, counted = [], set()
     for case in state.get("search_cases", []):
         if case["batch_id"] != batch_id: continue
-        if case["novelty"]["status"] != "new":
+        if case["novelty"]["status"] != "new" and case.get("packet_purpose") != "existing_review":
             results.append({"id": case["id"], "status": "revisit" if case["novelty"]["status"] == "known" else "coverage_unresolved", "novelty": case["novelty"]})
             continue
         try:
@@ -581,9 +852,10 @@ def case_report(state_path, workspace, batch_id, requested):
             role = next(r for r in state["opportunities"] if r["id"] == case["opportunity_id"])
             company = next(c for c in state["companies"] if c["id"] == role["company_id"])
             seen = novelty(state, workspace, {**role, "company_name": company["name"]}, case["registry_paths"], ignore_case=case)
-            if seen["status"] != "new" or seen["uncertain_company_contacts"]: check = {**check, "draft_ready": False, "status": "blocked", "novelty": seen}
-            if check["status"] in {"ready", "ready_with_pay_uncertainty"} and current_view: counted.add(case["opportunity_id"])
-            results.append({"id": case["id"], "opportunity_id": case["opportunity_id"], **check})
+            if (case["novelty"]["status"] == "new" and seen["status"] != "new") or seen["uncertain_company_contacts"]:
+                check = {**check, "draft_ready": False, "status": "blocked", "novelty": seen}
+            if case["novelty"]["status"] == "new" and check["status"] in {"ready", "ready_with_pay_uncertainty"} and current_view: counted.add(case["opportunity_id"])
+            results.append({"id": case["id"], "opportunity_id": case["opportunity_id"], "revisit": case["novelty"]["status"] != "new", **check})
         except (cs.Invalid, OSError, ValueError, StopIteration, KeyError) as error:
             results.append({"id": case["id"], "opportunity_id": case["opportunity_id"], "status": "incomplete", "error": str(error), "missing_packet_slots": sorted(SLOTS) if not case["attempt_id"] else []})
     return {"requested_new": requested, "new_ready": len(counted), "conditional": sum(r["status"] == "conditional" for r in results),
@@ -607,8 +879,40 @@ def interview_markdown(rows):
 
 def prepare_batch(state_path, workspace, requests, expected_revision):
     """Continue staged discoveries through actual packet preparation in one agent operation."""
-    cs.require(isinstance(requests, list) and 1 <= len(requests) <= 30, "Prepare one coherent batch of one to thirty packets")
+    cs.require(isinstance(requests, list) and bool(requests), "Prepare the selected packet scope")
     cs.require(cs.read_state(state_path)["revision"] == expected_revision, "State revision changed")
+    if all("case_id" in item for item in requests):
+        ids = [item["case_id"] for item in requests]
+        cs.require(len(ids) == len(set(ids)), "Select each exact packet once per edit batch")
+        for item in requests: cs.validate_shape(item, cs.state_schema()["$defs"]["packet_edit"], cs.state_schema(), "packet edit")
+        refresh_id = "edit-" + cm.sha256(cs.canonical_json(requests).encode())[:32]
+        state = cs.transact(state_path, lambda s: plan_refresh(s, {"id": refresh_id, "at": requests[0]["at"],
+            "case_ids": ids, "reason": requests[0]["reason"]}), expected_revision)
+        outcomes = []
+        for edit in requests:
+            try:
+                result = prepare_case(state_path, workspace, edit, cs.read_state(state_path)["revision"], refresh=True)
+                outcomes.append({"id": edit["case_id"], "saved": result.get("saved", False),
+                                 "view_refreshed": result.get("view_refreshed", False), "error": result.get("error")})
+            except (cs.Invalid, OSError, ValueError, KeyError, StopIteration) as error:
+                outcomes.append({"id": edit["case_id"], "saved": False, "error": str(error)})
+        receipt = deliver_packets(state_path, workspace, ids, refresh_id)
+        failed = {row["id"]: row for row in outcomes if not row["saved"]}
+        view_errors = [row for row in outcomes if row["saved"] and not row.get("view_refreshed")]
+        for packet in receipt["packets"]:
+            packet["requested_edit_saved"] = packet["id"] not in failed
+            if packet["id"] in failed:
+                packet.update(previous_review_current=packet["review_current"], review_current=False, ready_for_review=False,
+                              label="Previous packet retained — requested edit failed", update_error=failed[packet["id"]]["error"])
+        return {**receipt, "all_updated": receipt["all_updated"] and not failed,
+                "completed": receipt["completed"] and not failed and not view_errors,
+                "reviewed_current": sum(row["review_current"] for row in receipt["packets"]),
+                "ready_for_review": sum(row["ready_for_review"] for row in receipt["packets"]),
+                "view_refreshed": not failed and not view_errors, "presentation_errors": view_errors,
+                "refresh_id": refresh_id, "preparation_outcomes": outcomes,
+                "next_preparation": [row["id"] for row in receipt["packets"] if not row["review_current"]]}
+    cs.require(len(requests) <= 30, "Prepare new discoveries in coherent groups of at most thirty; retain the original stored quota")
+    cs.require(all("batch_id" in item for item in requests), "Use new-case requests or focused existing-case edits in one coherent batch")
     batch_id = requests[0]["batch_id"]
     cs.require(all(r["batch_id"] == batch_id for r in requests), "Keep one requested search scope per preparation batch")
     outcomes = []
@@ -625,21 +929,29 @@ def prepare_batch(state_path, workspace, requests, expected_revision):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("novelty", "begin-batch", "stage-case", "prepare-case", "prepare-batch", "report"))
+    parser.add_argument("command", choices=("novelty", "begin-batch", "stage-case", "prepare-case", "refresh-case", "plan-refresh", "prepare-batch", "deliver", "report"))
     parser.add_argument("state"); parser.add_argument("workspace"); parser.add_argument("input")
     parser.add_argument("--expected-revision", type=int); parser.add_argument("--requested", type=int, default=1)
     args = parser.parse_args()
     try:
-        if args.command == "begin-batch":
+        if args.command == "deliver":
+            request = cs.load_json(args.input)
+            result = export_delivery(args.state, args.workspace, request)
+        elif args.command == "plan-refresh":
+            cs.require(args.expected_revision is not None, "Expected state revision required")
+            request = cs.load_json(args.input)
+            state = cs.transact(args.state, lambda s: plan_refresh(s, request), args.expected_revision)
+            result = {"saved": True, "revision": state["revision"], "selected": len(request["case_ids"]), "refresh_id": request["id"], "completed": False}
+        elif args.command == "begin-batch":
             cs.require(args.expected_revision is not None, "Expected state revision required")
             updated = cs.transact(args.state, lambda s: begin_batch(s, cs.load_json(args.input)), args.expected_revision)
             result = {"saved": True, "revision": updated["revision"], "completed": False, "next_action": "Stage each discovery, then prepare its Markdown packet or report a specific blocker"}
         elif args.command == "prepare-batch":
             cs.require(args.expected_revision is not None, "Expected state revision required")
             result = prepare_batch(args.state, args.workspace, cs.load_json(args.input), args.expected_revision)
-        elif args.command in {"prepare-case", "stage-case"}:
+        elif args.command in {"prepare-case", "stage-case", "refresh-case"}:
             cs.require(args.expected_revision is not None, "Expected state revision required")
-            result = prepare_case(args.state, args.workspace, cs.load_json(args.input), args.expected_revision, args.requested, discovery_only=args.command == "stage-case")
+            result = prepare_case(args.state, args.workspace, cs.load_json(args.input), args.expected_revision, args.requested, discovery_only=args.command == "stage-case", refresh=args.command == "refresh-case")
         elif args.command == "novelty":
             result = novelty(cs.read_state(args.state), args.workspace, cs.load_json(args.input))
         else: result = case_report(args.state, args.workspace, args.input, args.requested)

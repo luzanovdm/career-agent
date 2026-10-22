@@ -1168,6 +1168,42 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "meaning": {
+                "const": "contact.phone.preference"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": "object",
+                "properties": {
+                  "disposition": {
+                    "enum": [
+                      "use",
+                      "omit",
+                      "unknown"
+                    ]
+                  },
+                  "value": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "disposition",
+                  "value"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
         }
       ]
     },
@@ -3254,6 +3290,15 @@
             "minLength": 1
           },
           "uniqueItems": true
+        },
+        "packet_evidence_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "packet_purpose": {
+          "enum": [
+            "existing_review"
+          ]
         }
       },
       "required": [
@@ -4000,6 +4045,86 @@
         "checked_at",
         "kind",
         "reliability"
+      ],
+      "additionalProperties": false
+    },
+    "packet_edit": {
+      "type": "object",
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "documents": {
+          "type": "object",
+          "properties": {
+            "resume": {
+              "$ref": "#/$defs/markdown_document"
+            },
+            "cover-letter": {
+              "$ref": "#/$defs/markdown_document"
+            },
+            "dossier": {
+              "$ref": "#/$defs/markdown_document"
+            },
+            "form-answers": {
+              "$ref": "#/$defs/markdown_document"
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "resume_reference": {
+          "type": "object",
+          "properties": {
+            "material_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "confirmation_evidence": {
+              "type": "string",
+              "minLength": 1
+            },
+            "adaptation_audit": {
+              "$ref": "#/$defs/adaptation_audit"
+            },
+            "extracted_text": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          },
+          "required": [
+            "material_id",
+            "confirmation_evidence"
+          ],
+          "additionalProperties": false
+        },
+        "interview_preparation": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/interview_prep"
+          }
+        },
+        "form": {
+          "$ref": "#/$defs/form"
+        }
+      },
+      "required": [
+        "case_id",
+        "at",
+        "reason"
       ],
       "additionalProperties": false
     }
