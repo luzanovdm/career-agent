@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.2
+
+- Integrate readable resume structure and evidence-backed vacancy terminology into the existing drafting workflow.
+- Preserve supported metrics and secondary achievements, retaining Markdown until an actual final-format requirement.
+- Add an optional read-only PDF/DOCX extraction check for content and reading-order loss, including Unicode minus signs.
+- Keep visual, hyperlink and employer-form review explicit; local extraction is not an ATS score or a guarantee of selection.
+
+PDF checking uses optional host-provided pdftotext; DOCX inspection uses the standard library. Candidate schema version 1 stays compatible. Updates do not modify private resumes or campaigns.
+
 ## 0.2.1
 
 - Consolidate source clarification, adaptation, verification and delivery into one packet workflow.

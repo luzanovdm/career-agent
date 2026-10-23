@@ -1,30 +1,30 @@
 {
   "descriptor_version": 1,
   "release": {
-    "version": "0.2.1",
-    "tag": "v0.2.1",
+    "version": "0.2.2",
+    "tag": "v0.2.2",
     "repository": "https://github.com/luzanovdm/career-agent",
     "state_schema_versions": [
       1
     ]
   },
   "changes": [
-    "Consolidate source clarification, adaptation, verification and delivery into one packet workflow.",
-    "Refresh saved unsent packets as immutable versions while preserving prior and submitted materials.",
-    "Retain clarified achievements, secondary metrics and current contact preferences across selected packets.",
-    "Deliver the same verified current Markdown content in chat, portal and archive; report failed edits and incomplete checks truthfully."
+    "Integrate readable resume structure and evidence-backed vacancy terminology into the existing drafting workflow.",
+    "Preserve supported metrics and secondary achievements, retaining Markdown until an actual final-format requirement.",
+    "Add an optional read-only PDF/DOCX extraction check for content and reading-order loss, including Unicode minus signs.",
+    "Keep visual, hyperlink and employer-form review explicit; local extraction is not an ATS score or a guarantee of selection."
   ],
   "files": {
     "SKILL.md": "a011e7e253b7d2710028c35f9420ef50c40bafb878aff10db36549741e3ba3a7",
     "LICENSE": "8df9bcff1b809c4ca4ea98dc5d1f0bdf44a2bafdc11c9e9e52e21652b1eed763",
     "references/profile.md": "11c8301b21a2424d1bcc591b1132f78c0505c1dd79a26873799723cd1733bfa8",
     "references/discovery.md": "71f172b4a2770acbf68fdb6f34daee66b08f1585eecee5d3e1b39d05aaac9ac9",
-    "references/packets.md": "63299e7f61a2d0e3725cdfad74ca52316f3b552c97ca403a1d3af98c8bdfe484",
+    "references/packets.md": "e157559f0a903de2c62ff55e9a1ab137f7805a7b50e8436bdbd240a40f5edd90",
     "references/tracking.md": "b421f6b4c45ae60806398288d2c3fc561c96c81b71ef53620015cb0c78bf5d2a",
     "references/interviews.md": "2b123ff62378cfcbc4bc8f3080bc0b1c4eebc311421e69a1e7d729f6da69b2cf",
     "references/history-import.md": "094da8f4c62c1d2327acfc5513a9c0cba0bedb9e4d768b1404674252b6d7d50c",
     "references/research-tools.md": "8756915b7e247b2114bced8ea7aa95e8193d0d04ce780017f4acf062530ce7ef",
-    "references/materials.md": "2e7b4247a3c71dd13be80099d2bc58de88c3b650777c94798fda555b1ca8a5c1",
+    "references/materials.md": "a7db1b52de932c1b53f6e3d814591b52ff23929c1f7df325ad7dbb89a3865ae8",
     "references/records.md": "c964f62ef269b1a2a33274ee56415c71dcb57a16df87a44eeddccf94e38c6d7c",
     "references/interaction.md": "22621931357290e228d9614d463d292fb865c6eea70351c6b3f611921b96686b",
     "references/context-enrichment.md": "b41711011598fb7e2af5826f74a9042410ca5fe503039470603a5ae9ec692ab4",
@@ -40,6 +40,7 @@
     "scripts/career_achievements.py": "744e0d0e47bda4a6034c45de75e6d68880bbd5cc3f7a499605b7768dc321edcf",
     "scripts/career_updates.py": "d70a622d56232c16a1514cae37ef3c56cc87bc0baa49950694a097e367453005",
     "scripts/career_portal.py": "561bbe8f9ab4d286b5b06f1ad28e9a9ff902f4c7dcced7f87ff36a064e3bb031",
+    "scripts/check_resume_render.py": "79124f0937999f55df9a110a54a59d6f7869bce1c070bcd00fdf2257f5c38afe",
     "references/state.schema.json": "fd703aa9025399650529db97aec345d25e53868b47976a1551b9594b8cae7a6b",
     "references/state-format.md": "a3fd5d0e43983b8a0ab1642fb678dbe957b834bf5a4ef45a43fa9185d678a198",
     "scripts/career_portal_assets.py": "de95fc17efca339091a6729daffa85bc854b3babc27d7c71d0c6f2f2e1573d06"
