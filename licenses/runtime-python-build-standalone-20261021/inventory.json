@@ -1,0 +1,134 @@
+[
+  {
+    "path": "LICENSE",
+    "sha256": "1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5",
+    "source_url": "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261021/LICENSE",
+    "git_blob": "a612ad9813b006ce81d1ee438dd784da99a54007"
+  },
+  {
+    "path": "LICENSE.bdb.txt",
+    "sha256": "3bdff06e69991c94664f2ef5c5f8096f60b7dbec071756ea6cc26b445e06ec5b",
+    "source_url": "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261021/LICENSE.bdb.txt",
+    "git_blob": "0601b45e01c6bda505d9d6697c77a28edf378722"
+  },
+  {
+    "path": "LICENSE.bzip2.txt",
+    "sha256": "1f38bbc7caacafd65169276d759c0d88c991b753b643ce35d0e45ea1971dd441",
+    "source_url": "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261021/LICENSE.bzip2.txt",
+    "git_blob": "a5c4cdbc3f5e894f765d903f3c5939d7aa009615"
+  },
+  {
+    "path": "LICENSE.cpython.txt",
+    "sha256": "86e61415828a8b5b06ec8d024e6f086ce155a8b85fd0c419c0ba4dc004e74fdd",
+    "source_url": "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261021/LICENSE.cpython.txt",
+    "git_blob": "1007a80520a7ff53a8dd5d8847bd4c0a34d46442"
+  },
+  {
+    "path": "LICENSE.expat.txt",
+    "sha256": "122f2c27000472a201d337b9b31f7eb2b52d091b02857061a8880371612d9534",
+    "source_url": "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261021/LICENSE.expat.txt",
+    "git_blob": "ce9e5939291e45f9633f540efc6ae58a26c041ef"
+  },
+  {
+    "path": "LICENSE.libX11.txt",
+    "sha256": "2daec087a88e7c9b8082557cdeebad5bbb8155a4137472f0b22e269cd99d0c1e",
+    "source_url": "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261021/LICENSE.libX11.txt",
+    "git_blob": "b065516e4437c493f9cbf32cc7d15db60f68bc74"
+  },
+  {
+    "path": "LICENSE.libXau.txt",
+    "sha256": "56abe29bb1d9806a9e04fa9f80fed2c0f18027594df3f098148d814aef6bddfa",
+    "source_url": "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261021/LICENSE.libXau.txt",
+    "git_blob": "64492ad8091f917787b14f12ba236e56de7addd2"
+  },
+  {
+    "path": "LICENSE.libedit.txt",
+    "sha256": "29cea33c32bbc9785142386377915612a2fa786482c46843383384aded2e09b1",
+    "source_url": "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261021/LICENSE.libedit.txt",
+    "git_blob": "52c8707dc590da3ef3b8a487475e4fe0b191f976"
+  },
+  {
+    "path": "LICENSE.libffi.txt",
+    "sha256": "deaf3a42effb551a5b140fa9afefed183a27f1341c6d1bf430d106a5e6931fc0",
+    "source_url": "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261021/LICENSE.libffi.txt",
+    "git_blob": "acb2f7a07d7c5093f258ce7f6e8711fa63e68747"
+  },
+  {
+    "path": "LICENSE.liblzma.txt",
+    "sha256": "9a4062de0a2c388a98cf35a35d348b62fa97c838a71c3c28ee1a2d7d0a565b02",
+    "source_url": "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261021/LICENSE.liblzma.txt",
+    "git_blob": "2d7885199716b722b52832f73fa75285459b08ae"
+  },
+  {
+    "path": "LICENSE.libuuid.txt",
+    "sha256": "122ee1f7e258f2c3c0e538a75c037684f420454bf3850ddc74ce750bbf5fe86b",
+    "source_url": "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261021/LICENSE.libuuid.txt",
+    "git_blob": "ec87a77f17f3f9415bd05ae1fb21c6009765f8b1"
+  },
+  {
+    "path": "LICENSE.libxcb.txt",
+    "sha256": "c5ffbfeaa501071ceeb97b7de2c0d703fdaa35de01c0fb6cbac1c28453a3e9fd",
+    "source_url": "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261021/LICENSE.libxcb.txt",
+    "git_blob": "54bfbe5b02074d0c276959c9140072ccba0dc670"
+  },
+  {
+    "path": "LICENSE.mpdecimal.txt",
+    "sha256": "669512af7219f58be03a398766d7c9da11a3b3df9d3f05cb74c5ceca25c8da3b",
+    "source_url": "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261021/LICENSE.mpdecimal.txt",
+    "git_blob": "c7688a928cd5292e5c2a729431fab7b30fd44a05"
+  },
+  {
+    "path": "LICENSE.ncurses.txt",
+    "sha256": "87a4c4442337b8968ef956031c406b74f9cb7149b7ba87311bdaba534816201c",
+    "source_url": "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261021/LICENSE.ncurses.txt",
+    "git_blob": "3a229753681327c4089d8fdaf9293658c7befe4a"
+  },
+  {
+    "path": "LICENSE.openssl-3.txt",
+    "sha256": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a",
+    "source_url": "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261021/LICENSE.openssl-3.txt",
+    "git_blob": "49cc83d2ee29d13453188217f0e4edd70c7f842f"
+  },
+  {
+    "path": "LICENSE.sqlite.txt",
+    "sha256": "38bef3d28b24f145ea293bd3b6eb4b20396982abc8303128fb493986ea5bc719",
+    "source_url": "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261021/LICENSE.sqlite.txt",
+    "git_blob": "68b36ebd1990e92998ca64a30af0a726357ebdea"
+  },
+  {
+    "path": "LICENSE.tcl.txt",
+    "sha256": "c0a69a2bfd757361ec7e6143973b103c90409316b49e9c88db26ad6388e79f16",
+    "source_url": "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261021/LICENSE.tcl.txt",
+    "git_blob": "d8049cd9e7ca055f7e584a76f88861a294b30c9c"
+  },
+  {
+    "path": "LICENSE.tix.txt",
+    "sha256": "3ac5cdd0bef6c43ce34c6a7ced452081d9e5a0bf94082b9f9147d23ec9e214f5",
+    "source_url": "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261021/LICENSE.tix.txt",
+    "git_blob": "5323a3fc39f6c196065fc49803b6777410b02c92"
+  },
+  {
+    "path": "LICENSE.zlib-ng.txt",
+    "sha256": "6c9f0d975b41afaa34d22f55bb8986ce69e5cb7ad327cb2b28820cd425edf5ee",
+    "source_url": "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261021/LICENSE.zlib-ng.txt",
+    "git_blob": "e866d7ac18620a2229727e3a0512ab688176cbd8"
+  },
+  {
+    "path": "LICENSE.zlib.txt",
+    "sha256": "818922b2620f12801a12bf78e399644a30990e66824abd8ca8ec24d451d6f92c",
+    "source_url": "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261021/LICENSE.zlib.txt",
+    "git_blob": "5eb28a147858fcb57ed306ed6fbd9c03f22f9452"
+  },
+  {
+    "path": "LICENSE.zstd.txt",
+    "sha256": "7055266497633c9025b777c78eb7235af13922117480ed5c674677adc381c9d8",
+    "source_url": "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261021/LICENSE.zstd.txt",
+    "git_blob": "75800288cc243f164b9d130f125e2ffae28f8e39"
+  },
+  {
+    "path": "python-licenses.rst",
+    "sha256": "e43fb936c6655d7996dba480d7ebdea492d6040ec388eb8ed9d1000f72de8cab",
+    "source_url": "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261021/python-licenses.rst",
+    "git_blob": "cfc2a2335573b7a9e93a3b5266737081e1deef2a"
+  }
+]

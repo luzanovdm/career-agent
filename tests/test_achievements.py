@@ -1,4 +1,6 @@
 """Synthetic lossless-source, clarification and actual resume-save regressions."""
+from bundle_fixtures import legacy_bundle_cli
+
 import copy
 import json
 from pathlib import Path
@@ -416,7 +418,7 @@ class AchievementTests(unittest.TestCase):
     def test_fresh_bundle_capture_plan_audit_outside_source(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory); bundle=root/"bundle"
-            built=subprocess.run([sys.executable,"-B",str(ROOT/"scripts/build_skill_bundle.py"),str(bundle)],capture_output=True,text=True)
+            built = legacy_bundle_cli(bundle)
             self.assertEqual(built.returncode,0,built.stderr)
             manifest=json.loads((bundle/"BUNDLE.json").read_text())
             self.assertIn("scripts/career_achievements.py",manifest["files"])

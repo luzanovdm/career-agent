@@ -1,0 +1,262 @@
+{
+  "format": "career-agent.screenshots/1",
+  "fictional": true,
+  "ui_sha256": "f383bf5fcdda8ee6b73acc84f8e24a4c44868644a212d3f131e3dbae9cb75bae",
+  "shots": [
+    {
+      "file": "demo-screenshots/readme/01-designer-board-ru-light.png",
+      "caption": "Fictional designer: twelve shared cases across all six derived stages and two career tracks.",
+      "persona": "Casey Example \u2014 Product designer and UX researcher",
+      "screen": "board",
+      "ui_locale": "ru",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 1080
+      },
+      "dimensions": {
+        "width": 1440,
+        "height": 1607
+      },
+      "build": "development-e7e4fb76a24423d1",
+      "actual_api": true,
+      "confirmed_functionality": true,
+      "primary": true,
+      "sha256": "a0ab367b55f31bb1526e1b2fbc7a5092958c4f606f87c5cfe19ab4736f6de0ed"
+    },
+    {
+      "file": "demo-screenshots/readme/02-designer-profile-en-light.png",
+      "caption": "Fictional designer: one profile, two distinct career directions and separately chosen document languages.",
+      "persona": "Casey Example \u2014 Product designer and UX researcher",
+      "screen": "profile and career tracks",
+      "ui_locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 1080
+      },
+      "dimensions": {
+        "width": 1440,
+        "height": 1080
+      },
+      "build": "development-e7e4fb76a24423d1",
+      "actual_api": true,
+      "confirmed_functionality": true,
+      "primary": false,
+      "sha256": "85482e044f7261c0b1cf93b2dfe9765d4688fcfdf40abd7615834bac433cb04a"
+    },
+    {
+      "file": "demo-screenshots/readme/03-makeup-message-ru-light.png",
+      "caption": "Fictional makeup artist: relevant professional contact, reviewed personalized message, private notes and a precise next action.",
+      "persona": "Jamie Example \u2014 Makeup artist and beauty educator",
+      "screen": "contact, next step, message and private notes",
+      "ui_locale": "ru",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 1080
+      },
+      "dimensions": {
+        "width": 1440,
+        "height": 1540
+      },
+      "build": "development-e7e4fb76a24423d1",
+      "actual_api": true,
+      "confirmed_functionality": true,
+      "primary": true,
+      "sha256": "9440bed512abba68df6bcdcfa3fed455f79dbba35d029b5395e6d647a7a7db1f"
+    },
+    {
+      "file": "demo-screenshots/readme/04-makeup-resume-en-light.png",
+      "caption": "Fictional makeup artist and educator: selected resume retains original sourced contributions and numbers.",
+      "persona": "Jamie Example \u2014 Makeup artist and beauty educator",
+      "screen": "selected resume",
+      "ui_locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 1080
+      },
+      "dimensions": {
+        "width": 1440,
+        "height": 1651
+      },
+      "build": "development-e7e4fb76a24423d1",
+      "actual_api": true,
+      "confirmed_functionality": true,
+      "primary": false,
+      "sha256": "cb76229e1984fb0f1abd64f5499dd74ecc3018c631c2685f6425fb781cd2ec86"
+    },
+    {
+      "file": "demo-screenshots/readme/05-makeup-answers-en-light.png",
+      "caption": "Fictional applicant answers remain scoped; unknown conditions and employer consent are explicit.",
+      "persona": "Jamie Example \u2014 Makeup artist and beauty educator",
+      "screen": "saved answers and notes",
+      "ui_locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 1080
+      },
+      "dimensions": {
+        "width": 1440,
+        "height": 1288
+      },
+      "build": "development-e7e4fb76a24423d1",
+      "actual_api": true,
+      "confirmed_functionality": true,
+      "primary": false,
+      "sha256": "d80bab74ce87eed2e95870581f1d7e666387dde2820b3c332536f51088da5886"
+    },
+    {
+      "file": "demo-screenshots/readme/06-makeup-agent-prompt-ru.png",
+      "caption": "Russian agent handoff names the exact case and directions. Copying this editable prompt performs no research, review or sending.",
+      "persona": "Jamie Example \u2014 Makeup artist and beauty educator",
+      "screen": "scoped agent handoff",
+      "ui_locale": "ru",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 1080
+      },
+      "dimensions": {
+        "width": 1440,
+        "height": 1080
+      },
+      "build": "development-e7e4fb76a24423d1",
+      "actual_api": true,
+      "confirmed_functionality": true,
+      "primary": true,
+      "sha256": "fd85b54b48168140dc48fb1de3bdeeda4222b003b78b619420c2f9a9348187cb"
+    },
+    {
+      "file": "demo-screenshots/readme/07-analyst-table-en-dark.png",
+      "caption": "Fictional systems and process analyst: bounded table compares people, career tracks, work stages and next actions.",
+      "persona": "Robin Example \u2014 Systems analyst and business process analyst",
+      "screen": "table",
+      "ui_locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 1080
+      },
+      "dimensions": {
+        "width": 1440,
+        "height": 1288
+      },
+      "build": "development-e7e4fb76a24423d1",
+      "actual_api": true,
+      "confirmed_functionality": true,
+      "primary": true,
+      "sha256": "db958e2e8555ad43d4bc78b2d441b8f16cf0a407d36ce0090da92937da398f9e"
+    },
+    {
+      "file": "demo-screenshots/readme/08-analyst-interview-en-dark.png",
+      "caption": "Fictional analyst interview: saved evidence story, personal attribution, follow-up questions and explicitly simulated logistics.",
+      "persona": "Robin Example \u2014 Systems analyst and business process analyst",
+      "screen": "saved interview preparation",
+      "ui_locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 1080
+      },
+      "dimensions": {
+        "width": 1440,
+        "height": 1404
+      },
+      "build": "development-e7e4fb76a24423d1",
+      "actual_api": true,
+      "confirmed_functionality": true,
+      "primary": true,
+      "sha256": "6f4949cfde507f43b8d57e12d71e05199f629c95a7941462097e646dcdb21de0"
+    },
+    {
+      "file": "demo-screenshots/readme/09-analyst-history-ru-dark.png",
+      "caption": "Fictional reply and interview invitation are explicitly labeled scenario records; history retains the pinned material version and source provenance.",
+      "persona": "Robin Example \u2014 Systems analyst and business process analyst",
+      "screen": "history and sources",
+      "ui_locale": "ru",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 1080
+      },
+      "dimensions": {
+        "width": 1440,
+        "height": 1352
+      },
+      "build": "development-e7e4fb76a24423d1",
+      "actual_api": true,
+      "confirmed_functionality": true,
+      "primary": false,
+      "sha256": "0c55a5c1b242db8e8225193156dd7164f35c165745ba0444ea4da7d1f659036e"
+    },
+    {
+      "file": "demo-screenshots/readme/10-hospitality-contacts-en-light.png",
+      "caption": "Fictional hospitality operations and training: published contacts retain provenance and current-versus-unknown affiliation.",
+      "persona": "Taylor Example \u2014 Guest operations supervisor and service trainer",
+      "screen": "qualified and provisional contacts",
+      "ui_locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 1080
+      },
+      "dimensions": {
+        "width": 1440,
+        "height": 1869
+      },
+      "build": "development-e7e4fb76a24423d1",
+      "actual_api": true,
+      "confirmed_functionality": true,
+      "primary": false,
+      "sha256": "37b976d6ea784ba1916fae70ce0cefa7289c60cfa8d2005864403418bd42e6f2"
+    },
+    {
+      "file": "demo-screenshots/readme/11-settings-en-system.png",
+      "caption": "Canonical system/light/dark appearance and interface language remain separate from conversation and material languages.",
+      "persona": "Taylor Example \u2014 Guest operations supervisor and service trainer",
+      "screen": "theme and interface locale",
+      "ui_locale": "en",
+      "theme": "system",
+      "viewport": {
+        "width": 1440,
+        "height": 1080
+      },
+      "dimensions": {
+        "width": 1440,
+        "height": 1080
+      },
+      "build": "development-e7e4fb76a24423d1",
+      "actual_api": true,
+      "confirmed_functionality": true,
+      "primary": false,
+      "sha256": "51c8dc366ccbb8e27d52edceb1797ce749d4fb53a7fc45a1e3bb1ca9c568e434"
+    },
+    {
+      "file": "demo-screenshots/readme/12-hospitality-mobile-ru-dark.png",
+      "caption": "Fictional hospitality candidate at 390px: person and next action precede the material editor; dark Russian interface.",
+      "persona": "Taylor Example \u2014 Guest operations supervisor and service trainer",
+      "screen": "mobile case detail",
+      "ui_locale": "ru",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "dimensions": {
+        "width": 390,
+        "height": 844
+      },
+      "build": "development-e7e4fb76a24423d1",
+      "actual_api": true,
+      "confirmed_functionality": true,
+      "primary": true,
+      "sha256": "b24f788979130f35c1dac7d6489881afe1b1ee30e8351a6315af1b9c79e3f4ac"
+    }
+  ],
+  "render_errors": [],
+  "external_requests": [],
+  "backend_checkpoint": "CP2 development; screenshots are illustrative, not CP4 acceptance proof"
+}

@@ -1,4 +1,6 @@
 """Synthetic discovery-to-packet completion and fixed paged portal regressions."""
+from bundle_fixtures import legacy_bundle_cli
+
 import copy
 import hashlib
 import json
@@ -140,7 +142,7 @@ class PortalTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root,path=self.workspace(directory);search.prepare_batch(path,root,[request()],0)
             bundle=Path(directory)/'bundle'
-            built=subprocess.run([sys.executable,'-B',str(ROOT/'scripts/build_skill_bundle.py'),str(bundle)],capture_output=True,text=True)
+            built = legacy_bundle_cli(bundle)
             self.assertEqual(built.returncode,0,built.stderr)
             self.assertTrue((bundle/'scripts/career_portal_assets.py').is_file());self.assertFalse((bundle/'templates').exists())
             command=[sys.executable,'-B',str(bundle/'scripts/career_portal.py'),str(path),str(root),'search-a','--destination','Reports/Bundled']

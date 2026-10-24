@@ -17,12 +17,14 @@ import sys
 import tempfile
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
+VALIDATOR_SOURCE_SHA256 = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+
 COLLECTIONS = (
     "sources", "companies", "opportunities", "facts", "suggestions", "artifacts",
     "attempts", "responses", "coverage", "answers", "dossier", "cases",
-    "interview_prep", "referrals", "referral_drafts", "contact_events", "forms", "history_imports", "materials", "application_attempts", "credentials", "rehearsals", "context_insights", "search_cases", "achievement_evidence", "achievement_interpretations", "search_batches",
+    "interview_prep", "referrals", "referral_drafts", "contact_events", "forms", "history_imports", "materials", "application_attempts", "credentials", "rehearsals", "context_insights", "search_cases", "achievement_evidence", "achievement_interpretations", "search_batches", "employee_contacts", "contact_suppressions", "delivery_permissions", "outbound_actions",
 )
-OPTIONAL_COLLECTIONS = {"context_insights", "search_cases", "achievement_evidence", "achievement_interpretations", "search_batches"}
+OPTIONAL_COLLECTIONS = {"context_insights", "search_cases", "achievement_evidence", "achievement_interpretations", "search_batches", "employee_contacts", "contact_suppressions", "delivery_permissions", "outbound_actions"}
 RESPONSE_TYPES = {"auto_receipt", "human_reply", "interview", "offer", "rejection",
                   "bounce", "withdrawal", "rejected_before_application"}
 TRACKING_KEYS = {"fbclid", "gclid", "msclkid"}
@@ -183,14 +185,28 @@ def state_schema():
                               "references/state.schema.json").read_text(encoding="utf-8"))
 
 
+def _literal_key(value):
+    """Preserve existing JSON identity, including bool/int and signed float distinctions."""
+    if type(value) in {str, int, bool, type(None)}:
+        return (type(value).__name__, value)
+    return ("json", canonical_json(value))
+
+
+@lru_cache(maxsize=256)
+def _enum_keys(choices):
+    return frozenset(choices)
+
+
 def validate_shape(value, schema, root=None, location="state"):
     """Evaluate the JSON Schema subset used by this project, without dependencies."""
+    if not schema: return
     root = schema if root is None else root
     if "$ref" in schema:
         target = root
         for part in schema["$ref"].removeprefix("#/").split("/"):
             target = target[part]
         validate_shape(value, target, root, location)
+        if len(schema) == 1: return
     for member in schema.get("allOf", []):
         validate_shape(value, member, root, location)
     if "anyOf" in schema:
@@ -212,9 +228,9 @@ def validate_shape(value, schema, root=None, location="state"):
         if branch in schema:
             validate_shape(value, schema[branch], root, location)
     if "const" in schema:
-        require(canonical_json(value) == canonical_json(schema["const"]), location + " has invalid constant")
+        require(_literal_key(value) == _literal_key(schema["const"]), location + " has invalid constant")
     if "enum" in schema:
-        require(canonical_json(value) in {canonical_json(item) for item in schema["enum"]},
+        require(_literal_key(value) in _enum_keys(tuple(_literal_key(item) for item in schema["enum"])),
                 location + " has an unsupported value")
     types = schema.get("type")
     if types:
@@ -235,7 +251,7 @@ def validate_shape(value, schema, root=None, location="state"):
         require(len(value) >= schema.get("minItems", 0), location + " has too few items")
         require(len(value) <= schema.get("maxItems", len(value)), location + " has too many items")
         if schema.get("uniqueItems"):
-            require(len({canonical_json(item) for item in value}) == len(value), location + " has duplicates")
+            require(len({_literal_key(item) for item in value}) == len(value), location + " has duplicates")
         for position, item in enumerate(value):
             validate_shape(item, schema.get("items", {}), root, location + "[" + str(position) + "]")
     elif isinstance(value, str):
@@ -572,16 +588,90 @@ def validate(state):
     for row in state["contact_events"]:
         person = index["referrals"].get(row.get("referral_id"), {})
         require(person.get("opportunity_id") == row["opportunity_id"], "Contact role mismatch")
-        _one(row, "status", {"user_reported_sent", "uncertain", "reply", "declined"})
+        _one(row, "status", {"user_reported_sent", "uncertain", "reply", "declined", "not_sent"})
         _text(row, "evidence")
         timestamp(row["at"])
+    validate_contact_history(state, index)
     validate_imports(state)
     validate_materials_and_credentials(state, index)
     validate_context(state, index)
     validate_search_cases(state, index)
     validate_achievements(state, index)
     validate_workflow(state, index)
+    outreach_owner().validate_records(state, index, require, timestamp)
     return state
+
+
+def effective_contact_events(state):
+    resolved = {r.get("resolves_contact_event_id") for r in state["contact_events"]}
+    return [r for r in state["contact_events"] if r["status"] == "user_reported_sent" or
+            (r["status"] == "uncertain" and r["id"] not in resolved)]
+
+
+def contact_action_link_issues(state):
+    actions = {a["id"]: a for a in state.get("outbound_actions", [])}
+    referrals = {r["id"]: r for r in state["referrals"]}; issues = []
+    expected = {"user_reported_sent": {"sent"}, "uncertain": {"dispatching", "uncertain"}, "not_sent": {"failed"}, "reply": {"sent"}, "declined": {"sent"}}
+    for event in state["contact_events"]:
+        if not event.get("outbound_action_id"): continue
+        action = actions.get(event["outbound_action_id"]); person = referrals.get(event["referral_id"], {})
+        reason = None
+        if not action: reason = "Referenced outbound action does not exist"
+        elif action["kind"] != "outreach": reason = "Diagnostic action cannot attest personal outreach"
+        elif action["opportunity_id"] != event["opportunity_id"] or action["company_id"] != person.get("company_id") or action["contact_id"] != person.get("employee_contact_id"): reason = "Action person/company/opportunity differs from the contact event"
+        elif not any(e["state"] in expected[event["status"]] and timestamp(e["at"]) <= timestamp(event["at"]) for e in action["events"]): reason = "Action outcome/time does not attest this contact status"
+        if reason: issues.append({"event_id": event["id"], "reason": reason})
+    return issues
+
+
+def read_contact_review_state(path):
+    """Read-only quarantine view: validate all other owners and legacy event shape/references."""
+    state = load_json(path); sanitized = copy.deepcopy(state); sanitized["contact_events"] = []
+    validate(sanitized); validate_shape(state, state_schema())
+    events = state["contact_events"]; require(len({e["id"] for e in events}) == len(events), "Duplicate legacy contact event ID")
+    referrals = {r["id"]: r for r in state["referrals"]}
+    for event in events:
+        require(referrals.get(event["referral_id"], {}).get("opportunity_id") == event["opportunity_id"], "Legacy contact role/reference mismatch")
+    return state
+
+
+def validate_contact_history(state, index):
+    """Personal outreach has the same conservative uncertain-action boundary as applications."""
+    quarantined = set()
+    for review in state["profile"].get("contact_history_review", []):
+        require(set(review) == {"event", "reviewed_at", "evidence", "outcome"} and review["outcome"] == "unresolved", "Invalid quarantined contact observation")
+        validate_shape(review["event"], state_schema()["$defs"]["contact_event"], state_schema())
+        _text(review, "evidence"); require(timestamp(review["reviewed_at"]) >= timestamp(review["event"]["at"]), "Quarantine predates its observation")
+        require(review["event"]["id"] not in quarantined and review["event"]["id"] not in index["contact_events"], "Quarantine preserves one distinct original observation")
+        require(index["referrals"].get(review["event"]["referral_id"], {}).get("opportunity_id") == review["event"]["opportunity_id"], "Quarantined observation must retain its known person/role identity")
+        quarantined.add(review["event"]["id"])
+    require(not contact_action_link_issues(state), "Invalid contact/action link: " + str(contact_action_link_issues(state)))
+    pending = {}; resolved = set()
+    for row in sorted(state["contact_events"], key=lambda r: timestamp(r["at"])):
+        person = index["referrals"][row["referral_id"]]
+        contact = index["employee_contacts"].get(person.get("employee_contact_id"))
+        keys = [("opportunity", row["opportunity_id"]), ("referral", row["referral_id"])]
+        if contact: keys.append(("person", contact["company_id"], contact["person_key"]))
+        previous = row.get("resolves_contact_event_id")
+        if previous:
+            target = index["contact_events"].get(previous, {})
+            require(target.get("status") == "uncertain" and row["status"] in {"user_reported_sent", "not_sent"} and
+                    target.get("referral_id") == row["referral_id"] and target.get("opportunity_id") == row["opportunity_id"] and previous not in resolved,
+                    "Contact reconciliation must uniquely resolve the same uncertain person/role event")
+            _text(row, "reconciliation_evidence")
+            require(timestamp(row["at"]) >= timestamp(target["at"]), "Contact resolution predates its uncertain event")
+            require(row.get("occurred_at") == target.get("occurred_at", target["at"]), "Contact reconciliation preserves original action time")
+            require(all(pending.get(key) == previous for key in keys), "Contact resolution must follow its uncertain event")
+            pending = {key: value for key, value in pending.items() if value != previous}; resolved.add(previous)
+        elif row["status"] in {"user_reported_sent", "uncertain"}:
+            require(not any(key in pending for key in keys), "Reconcile uncertain personal outreach before recording another contact")
+            if row["status"] == "uncertain": pending.update({key: row["id"] for key in keys})
+        else:
+            require(row["status"] != "not_sent", "Not-sent contact must resolve a recorded uncertain event")
+    for referral in state["referrals"]:
+        if referral.get("employee_contact_id"):
+            contact = index["employee_contacts"].get(referral["employee_contact_id"], {})
+            require(contact.get("company_id") == referral["company_id"] and referral["opportunity_id"] in contact.get("opportunity_ids", []), "Referral must reference the same evidenced person/company/role")
 
 
 def validate_achievements(state, index):
@@ -614,8 +704,29 @@ def validate_achievements(state, index):
                 for metric in entry["metrics"]: _refs(metric, "fact_ids", index["facts"])
 
 
+@lru_cache(maxsize=1)
+def outreach_owner():
+    """Load the bundled sibling even when this module is loaded by file path."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("career_outreach_owner", Path(__file__).with_name("career_outreach.py"))
+    module = importlib.util.module_from_spec(spec)
+    raw = Path(spec.origin).read_bytes()
+    exec(compile(raw, spec.origin, "exec"), module.__dict__)
+    module.source_sha256 = hashlib.sha256(raw).hexdigest()
+    return module
+
+
+def is_email_channel(value):
+    return bool(re.search(r"mail|smtp|outlook|sendgrid|mailgun|amazon ses", value, re.I))
+
+
 def add_record(state, collection, row):
     require(collection in COLLECTIONS, "Unknown collection")
+    require(collection not in outreach_owner().OWNED, "Use career_outreach.py owner commands for contact, suppression, permission and action records")
+    if collection == "attempts":
+        require(row.get("purpose") != "diagnostic", "Diagnostic tests never belong to employer attempts")
+        if is_email_channel(row.get("channel", "")):
+            require(bool(row.get("outbound_action_id")), "New email attempts require a reconciled outbound action; import old manual history as observations")
     validate(state)
     row = copy.deepcopy(row)
     validate_shape(row, state_schema()["properties"][collection]["items"], state_schema(), "new record")
@@ -640,6 +751,11 @@ def add_record(state, collection, row):
                     existing["original_locators"].append(row["locator"])
                 return validate(candidate)
     if collection == "attempts" and not row.get("resolves_attempt_id"):
+        require(not any(e["opportunity_id"] == row["opportunity_id"] and e["status"] == "uncertain" for e in effective_contact_events(candidate)),
+                "Reconcile uncertain personal outreach before another application")
+        require(not any(a["kind"] == "outreach" and a["opportunity_id"] == row["opportunity_id"] and
+                        a["events"][-1]["state"] in {"dispatching", "uncertain"} and a["id"] != row.get("outbound_action_id") for a in candidate.get("outbound_actions", [])),
+                "Reconcile the outbound delivery claim before another application")
         resolved = {a.get("resolves_attempt_id") for a in candidate["attempts"]}
         require(not any(a["opportunity_id"] == row["opportunity_id"] and a["outcome"] == "uncertain" and
                         a["id"] not in resolved for a in candidate["attempts"]),
@@ -720,6 +836,10 @@ def research_status(state, context_id=None, at=None):
         validate(state)
     except Invalid as error:
         return {"allowed": False, "scope": "", "reasons": ["Invalid control/state: " + str(error)]}
+    return _research_decision(state, context_id, at)
+
+
+def _research_decision(state, context_id=None, at=None):
     control, reasons = state["control"], []
     run = control.get("run")
     if not control["authorized"] or control["paused"]: reasons.append("Research is paused or revoked")
@@ -727,7 +847,8 @@ def research_status(state, context_id=None, at=None):
     elif timestamp(at or utcnow()) >= timestamp(run["expires_at"]): reasons.append("Research run expired; explicit resume required")
     setup = search_prerequisites(state)
     if not setup["ready"]: reasons.append("Search intake decisions missing: " + ", ".join(setup["missing"]))
-    return {"allowed": not reasons, "scope": control["scope"], "reasons": reasons, "prerequisites": setup}
+    return {"allowed": not reasons, "scope": control["scope"], "reasons": reasons, "prerequisites": setup,
+            "research_tracks": copy.deepcopy(state.get("profile", {}).get("selected_directions", []))}
 
 
 def research_allowed(state, context_id=None, at=None):
@@ -823,10 +944,12 @@ def stats(state, as_of, wait_days=7, evidence_as_of=None):
                    "waiting_roles": len(waiting), "current_delivery_problem_roles": len(delivery_problem),
                    "historically_reported_application_roles": len(reported),
                    "unmapped_history_entries": sum(r["opportunity_id"] is None for r in state["history_imports"]),
+                   "quarantined_contact_observations": len(state["profile"].get("contact_history_review", [])),
                    "referral_prospects": len(state["referrals"]), "referral_drafts": len(state["referral_drafts"]),
                    "referral_contact_events": sum(timestamp(e["at"]) <= when for e in state["contact_events"])},
         "hiring_response_rate": {"numerator": numerator, "denominator": len(sent),
                                  "value": numerator / len(sent) if sent else None},
+        "outreach": outreach_owner().summary(state, as_of),
         "review_required_artifact_ids": [a["id"] for a in state["artifacts"] if a.get("review_required")],
         "notes": ["Unique role counts; response categories can overlap.",
                   "Inventory and imported-history counts describe current records, not a historic snapshot.",
@@ -901,6 +1024,16 @@ def reviewed_update(state, request, reason):
         if source_id not in fact["source_ids"]:
             fact["source_ids"].append(source_id)
         after = copy.deepcopy(fact)
+    elif operation == "reconcile_import_uncertainty":
+        row = next((r for r in candidate["history_imports"] if r["id"] == request["history_id"]), None)
+        action = next((r for r in candidate["attempts"] if r["id"] == request["attempt_id"]), None)
+        require(row and row["status"] == "uncertain" and action and action["outcome"] in {"sent", "not_sent"} and row["opportunity_id"] == action["opportunity_id"], "Imported uncertainty needs an evidenced exact-role confirmed action")
+        _text(request, "evidence"); timestamp(request["at"])
+        entry = {k: request[k] for k in ("history_id", "attempt_id", "evidence", "at")}
+        before = copy.deepcopy(candidate["profile"].get("history_reconciliations", []))
+        require(not any(r["history_id"] == row["id"] for r in before), "Imported uncertainty was already reconciled")
+        candidate["profile"].setdefault("history_reconciliations", []).append(entry)
+        after = entry
     elif operation == "confirm_answer":
         answer = next((r for r in candidate["answers"] if r["id"] == request["answer_id"]), None)
         require(answer is not None and not answer["confirmed"], "Choose an existing draft answer")
@@ -1014,6 +1147,13 @@ def normalize_history(state, rows):
 
 
 def validate_imports(state):
+    reconciled = set(); imports = {r["id"]: r for r in state["history_imports"]}; attempts = {r["id"]: r for r in state["attempts"]}
+    for entry in state["profile"].get("history_reconciliations", []):
+        require(set(entry) == {"history_id", "attempt_id", "evidence", "at"}, "Invalid import reconciliation record")
+        history = imports.get(entry["history_id"]); action = attempts.get(entry["attempt_id"])
+        require(history and history["status"] == "uncertain" and action and action["outcome"] in {"sent", "not_sent"} and history["opportunity_id"] == action["opportunity_id"] and entry["history_id"] not in reconciled, "Import reconciliation must link one uncertain observation to the same exact-role confirmed action")
+        _text(entry, "evidence"); require(timestamp(entry["at"]) >= timestamp(action["at"]), "Import reconciliation predates its action evidence")
+        reconciled.add(entry["history_id"])
     roles = {row["id"]: row for row in state["opportunities"]}
     for row in state["history_imports"]:
         validate_shape(row, state_schema()["$defs"]["history_import"], state_schema(), "history row")
@@ -1110,14 +1250,22 @@ def reapplication_guard(state, opportunity_id):
     validate(state)
     require(opportunity_id in {r["id"] for r in state["opportunities"]}, "Unknown exact opportunity")
     role = next(r for r in state["opportunities"] if r["id"] == opportunity_id)
+    resolved = {r.get("resolves_attempt_id") for r in state["attempts"]}
     attempts = [r["id"] for r in state["attempts"] if r["opportunity_id"] == opportunity_id and
-                r["outcome"] in {"sent", "uncertain"}]
+                (r["outcome"] == "sent" or (r["outcome"] == "uncertain" and r["id"] not in resolved))]
+    attempt_index = {r["id"]: r for r in state["attempts"]}
+    proved_not_sent_imports = {r["history_id"] for r in state["profile"].get("history_reconciliations", []) if attempt_index[r["attempt_id"]]["outcome"] == "not_sent"}
     imports = [r["id"] for r in state["history_imports"] if r["opportunity_id"] == opportunity_id and
-               r["status"] in {"sent", "uncertain", "bounced"}]
+               r["status"] in {"sent", "uncertain", "bounced"} and r["id"] not in proved_not_sent_imports]
     possible = [r["id"] for r in state["history_imports"] if r["opportunity_id"] is None and r["role"] and
                 r["role"].casefold() == role["title"].casefold() and
                 r["employer"].casefold() == next(c["name"].casefold() for c in state["companies"] if c["id"] == role["company_id"])]
-    return {"opportunity_id": opportunity_id, "requires_review": bool(attempts or imports or possible),
+    contacts = [r["id"] for r in effective_contact_events(state) if r["opportunity_id"] == opportunity_id]
+    outbound = [r["id"] for r in state.get("outbound_actions", []) if r["kind"] == "outreach" and r["opportunity_id"] == opportunity_id and
+                r["events"][-1]["state"] in {"dispatching", "uncertain", "sent"}]
+    return {"opportunity_id": opportunity_id, "requires_review": bool(attempts or imports or possible or contacts or outbound or any(r["event"]["opportunity_id"] == opportunity_id for r in state["profile"].get("contact_history_review", []))),
+            "contact_event_ids": contacts, "outbound_action_ids": outbound,
+            "quarantined_contact_ids": [r["event"]["id"] for r in state["profile"].get("contact_history_review", []) if r["event"]["opportunity_id"] == opportunity_id],
             "attempt_ids": attempts, "import_ids": imports, "possible_identity_matches": possible,
             "message": "Reconcile prior history before any new application; this check never authorizes sending"}
 
@@ -1343,7 +1491,7 @@ def _write_atomic(path, state):
             os.unlink(temporary)
 
 
-def transact(path, transform, expected_revision=None):
+def transact(path, transform, expected_revision=None, _reader=None):
     path = private_path(path)
     require(not path.is_symlink(), "State file cannot be a symlink")
     lock = path.with_name(path.name + ".lock")
@@ -1353,7 +1501,7 @@ def transact(path, transform, expected_revision=None):
         raise Invalid("State is locked; inspect the writer before removing a stale lock") from error
     try:
         os.close(descriptor)
-        state = read_state(path)
+        state = (_reader or read_state)(path)
         if expected_revision is not None:
             require(type(expected_revision) is int and state["revision"] == expected_revision,
                     "State revision changed; preview/review the latest state before retrying")
@@ -1509,6 +1657,9 @@ def main(argv=None):
         elif name in {"research-check", "reconcile-session"}:
             command.add_argument("--context-id", required=name == "reconcile-session")
             command.add_argument("--at")
+            if name == "research-check":
+                command.add_argument("--cache-dir", help="Optional private directory for disposable validation receipts")
+                command.add_argument("--no-cache", action="store_true", help="Force complete validation for this check")
             if name == "reconcile-session":
                 command.add_argument("--evidence", required=True)
                 command.add_argument("--expected-revision", type=int, required=True)
@@ -1541,6 +1692,9 @@ def main(argv=None):
                 def transform(state):
                     candidate = copy.deepcopy(state)
                     require(bool(args.reason.strip()), "Settings review reason required")
+                    if args.section == "profile":
+                        for field in ("contact_history_review", "history_reconciliations"):
+                            require(row.get(field, []) == state["profile"].get(field, []), "Use reviewed workflow owners to modify contact/import reconciliation metadata")
                     candidate[args.section] = row
                     candidate["change_history"].append({"operation": "settings_" + args.section,
                         "reason": args.reason, "at": utcnow(), "revision_from": state["revision"],
@@ -1561,6 +1715,11 @@ def main(argv=None):
                                                         args.scope, args.user_confirmed, args.context_id, expires_at=args.expires_at)
             updated = transact(args.state, transform, getattr(args, "expected_revision", None))
             result = {"revision": updated["revision"], "valid": True}
+        elif args.command == "research-check":
+            from career_research import research_check
+            result = research_check(args.state, sys.modules[__name__], args.context_id, args.at, args.cache_dir, not args.no_cache)
+            print(json.dumps(result, indent=2, ensure_ascii=False, allow_nan=False))
+            return 0 if result["allowed"] else 3
         else:
             state = read_state(args.state)
             if args.command == "stats":
@@ -1571,11 +1730,6 @@ def main(argv=None):
                 result = reapplication_guard(state, args.opportunity_id)
             elif args.command == "answer-get":
                 result = lookup_answer(state, load_json(args.query), args.at)
-            elif args.command == "research-check":
-                result = research_status(state, args.context_id, args.at)
-                allowed = result["allowed"]
-                print(json.dumps(result, indent=2))
-                return 0 if allowed else 3
             else:
                 result = {"valid": True, "revision": state["revision"]}
         print(json.dumps(result, indent=2, ensure_ascii=False, allow_nan=False))

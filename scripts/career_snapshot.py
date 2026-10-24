@@ -108,10 +108,15 @@ def view_data(state, workspace, as_of):
         if saved_cases and not roots and assessment["pending_consents"]:
             stage += " (submission consent pending)"
         guard = cs.reapplication_guard(state, identifier)
+        outreach = [a for a in report["outreach"]["actions"] if a["opportunity_id"] == identifier]
         next_action = role.get("next_action", "Reconcile history before reapplying" if guard["requires_review"] else "Choose next step in chat")
         observed = max(role["status_observations"], key=lambda item: cs.timestamp(item["at"]))
         materials = {m["id"]: m for m in state["materials"]}
         pinned = [(a, pin, materials[pin["material_id"]]) for a in application_attempts for pin in a["materials"]]
+        if outreach:
+            current_outreach = outreach[-1]
+            next_action = current_outreach["next_action"] + "; " + str(current_outreach["contact"].get("public_name") or "Diagnostic") + "; " + current_outreach["state"]
+            metadata.append([identifier, "Outreach " + current_outreach["id"], current_outreach["reason"], ", ".join(current_outreach["source_urls"]), current_outreach["payload_sha256"], current_outreach["state"]])
         documents = "; ".join(f"{a['kind']} v{a['version']}: {a['path']}" for a in artifacts) or "None prepared"
         if pinned:
             documents = "; ".join(f"{a['label']} / {pin['slot']} v{pin['version']}: {material['path']}" for a, pin, material in pinned)
