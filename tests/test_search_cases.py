@@ -1,4 +1,6 @@
 """Synthetic acceptance gates for new, saved, income-aware application cases."""
+from bundle_fixtures import legacy_bundle_cli
+
 import copy
 import json
 from pathlib import Path
@@ -235,7 +237,7 @@ class SearchCaseTests(unittest.TestCase):
     def test_new_helper_in_fresh_bundle_saves_packet_and_enforces_quota(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory); workspace, path = self.fixture(directory); bundle = root / "bundle"
-            built = subprocess.run([sys.executable, '-B', str(ROOT / 'scripts/build_skill_bundle.py'), str(bundle)], capture_output=True, text=True)
+            built = legacy_bundle_cli(bundle)
             self.assertEqual(built.returncode, 0, built.stderr)
             request_path = root / "request.json"; request_path.write_text(json.dumps(request()))
             command = [sys.executable, '-B', str(bundle / 'scripts/career_search.py')]

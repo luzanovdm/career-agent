@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.0.0
+
+- Install a versioned, verified offline runtime, bundled Python, prebuilt React Aria interface and skill into the chosen private workspace; app operations use only that installed copy.
+- Replace the runtime JSON contract with one SQLite transaction owner, immutable objects, typed commands, selected packet/version projections and durable change notifications shared by UI and CLI.
+- Preserve source-backed achievements, original metrics, scoped profile conditions, pending versus provided unknown answers, conditional eligibility and original job-search completion.
+- Add loopback-only authenticated lifecycle, CSRF/CSP protections, dirty-edit conflicts, SSE/reconnect with polling fallback, system/light/dark themes, English/Russian UI and validated custom catalogs.
+- Keep complex research/writing/review actions as bounded agent prompts; no automatic research, messaging, submission, telemetry or hosted account service.
+- Separate offline legacy retention/reconciliation from clean runtime and code updates; unresolved data cannot activate a migrated workspace.
+
+The released archive is macOS arm64 only, tested natively on macOS 27.0.1. The declared older OS minimum and other platforms are untested. This is a runtime-contract break; old JSON helpers remain audit/test source and are excluded from installed app operations. No personal migration or skill replacement occurs through publication.
+
+## 0.3.0
+
+- Discover relevant employees and published professional routes with independent evidence/confidence axes, shared identity/history and scoped suppression.
+- Inspect actual outgoing MIME payloads and record separately authorized receiver-side diagnostics, representative variants and active-campaign cadence; scores remain heuristics.
+- Guard exact-payload intents, permission reuse/revocation, coordinated outreach and uncertain-result reconciliation without adding an automated sender or scheduler.
+- Reconcile legacy ambiguous contact history through explicit review or preserved unresolved quarantine, with validated action links and audit visibility.
+- Research all selected career directions through one shared opportunity/contact registry, preserving track-specific rationale and exact-role deduplication.
+- Reduce research-check cost with one full validation, faster schema comparisons and optional private authenticated receipts for unchanged local snapshots; context, pause, expiry and intake are checked afresh.
+
+Existing candidate schema version 1 remains supported; no private-data/database migration, personal installation update, research or external sending occurs during release installation. Readiness still requires actual source/packet checks. Storage normalization is documented as a separate, explicitly approved future migration.
+
 ## 0.2.2
 
 - Integrate readable resume structure and evidence-backed vacancy terminology into the existing drafting workflow.

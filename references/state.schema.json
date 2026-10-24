@@ -190,6 +190,34 @@
       "items": {
         "$ref": "#/$defs/search_batch"
       }
+    },
+    "employee_contacts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/employee_contacts"
+      },
+      "minItems": 0
+    },
+    "contact_suppressions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/contact_suppressions"
+      },
+      "minItems": 0
+    },
+    "delivery_permissions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/delivery_permissions"
+      },
+      "minItems": 0
+    },
+    "outbound_actions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/outbound_actions"
+      },
+      "minItems": 0
     }
   },
   "required": [
@@ -970,6 +998,15 @@
         "application_attempt_id": {
           "type": "string",
           "minLength": 1
+        },
+        "outbound_action_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "purpose": {
+          "enum": [
+            "application"
+          ]
         }
       },
       "required": [
@@ -1448,6 +1485,10 @@
         "company_id": {
           "type": "string",
           "minLength": 1
+        },
+        "employee_contact_id": {
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -1560,7 +1601,8 @@
             "user_reported_sent",
             "uncertain",
             "reply",
-            "declined"
+            "declined",
+            "not_sent"
           ]
         },
         "at": {
@@ -1570,6 +1612,22 @@
         "evidence": {
           "type": "string",
           "minLength": 1
+        },
+        "outbound_action_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "resolves_contact_event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reconciliation_evidence": {
+          "type": "string",
+          "minLength": 1
+        },
+        "occurred_at": {
+          "type": "string",
+          "format": "date-time"
         }
       },
       "required": [
@@ -1751,6 +1809,66 @@
         },
         "evidence_review": {
           "$ref": "#/$defs/evidence_review"
+        },
+        "contact_history_review": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "event": {
+                "$ref": "#/$defs/contact_event"
+              },
+              "reviewed_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "evidence": {
+                "type": "string",
+                "minLength": 1
+              },
+              "outcome": {
+                "const": "unresolved"
+              }
+            },
+            "required": [
+              "event",
+              "reviewed_at",
+              "evidence",
+              "outcome"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "history_reconciliations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "history_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "attempt_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "evidence": {
+                "type": "string",
+                "minLength": 1
+              },
+              "at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": [
+              "history_id",
+              "attempt_id",
+              "evidence",
+              "at"
+            ],
+            "additionalProperties": false
+          }
         }
       },
       "required": [
@@ -1934,6 +2052,27 @@
         },
         "results_only": {
           "type": "boolean"
+        },
+        "deliverability": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "enum": [
+                "ask",
+                "external_allowed",
+                "local_only"
+              ]
+            },
+            "active_outbound": {
+              "type": "boolean"
+            },
+            "interval_days": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [],
+          "additionalProperties": false
         }
       },
       "required": [
@@ -4125,6 +4264,938 @@
         "case_id",
         "at",
         "reason"
+      ],
+      "additionalProperties": false
+    },
+    "employee_contacts": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "company_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "person_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "public_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observed_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "relevance": {
+          "type": "string",
+          "minLength": 1
+        },
+        "opportunity_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "kind": {
+          "enum": [
+            "named_employee",
+            "role_inbox",
+            "company_inbox",
+            "inferred_address"
+          ]
+        },
+        "endpoint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "address_provenance": {
+          "enum": [
+            "published_professional",
+            "prior_correspondence",
+            "inferred"
+          ]
+        },
+        "affiliation": {
+          "enum": [
+            "current",
+            "former",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "checked_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "valid_until": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "confidence": {
+          "type": "object",
+          "properties": {
+            "identity": {
+              "enum": [
+                "high",
+                "medium",
+                "low",
+                "unknown"
+              ]
+            },
+            "affiliation": {
+              "enum": [
+                "high",
+                "medium",
+                "low",
+                "unknown"
+              ]
+            },
+            "relevance": {
+              "enum": [
+                "high",
+                "medium",
+                "low",
+                "unknown"
+              ]
+            },
+            "address": {
+              "enum": [
+                "high",
+                "medium",
+                "low",
+                "unknown"
+              ]
+            },
+            "delivery": {
+              "enum": [
+                "high",
+                "medium",
+                "low",
+                "unknown"
+              ]
+            }
+          },
+          "required": [
+            "identity",
+            "affiliation",
+            "relevance",
+            "address",
+            "delivery"
+          ],
+          "additionalProperties": false
+        },
+        "provenance": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "source_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "url": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                ]
+              },
+              "checked_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "evidence": {
+                "type": "string",
+                "minLength": 1
+              },
+              "purpose": {
+                "enum": [
+                  "identity",
+                  "affiliation",
+                  "relevance",
+                  "address"
+                ]
+              }
+            },
+            "required": [
+              "source_id",
+              "url",
+              "checked_at",
+              "evidence",
+              "purpose"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1
+        },
+        "delivery_status": {
+          "enum": [
+            "unknown",
+            "previous_delivery",
+            "known_failure"
+          ]
+        },
+        "delivery_evidence": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "id",
+        "company_id",
+        "person_key",
+        "public_name",
+        "observed_role",
+        "relevance",
+        "opportunity_ids",
+        "kind",
+        "endpoint",
+        "address_provenance",
+        "affiliation",
+        "checked_at",
+        "valid_until",
+        "confidence",
+        "provenance"
+      ],
+      "additionalProperties": false
+    },
+    "contact_suppressions": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "company_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope": {
+          "enum": [
+            "endpoint",
+            "person",
+            "company",
+            "opportunity"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "enum": [
+            "hard_bounce",
+            "opt_out"
+          ]
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "id",
+        "company_id",
+        "scope",
+        "value",
+        "reason",
+        "at",
+        "evidence",
+        "source_ids"
+      ],
+      "additionalProperties": false
+    },
+    "delivery_permissions": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mode": {
+          "enum": [
+            "one_time",
+            "standing"
+          ]
+        },
+        "scope": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "enum": [
+                "diagnostic",
+                "outreach"
+              ]
+            },
+            "purpose": {
+              "enum": [
+                "diagnostic",
+                "application",
+                "cold_introduction",
+                "follow_up"
+              ]
+            },
+            "sender": {
+              "type": "string",
+              "minLength": 1
+            },
+            "provider": {
+              "type": "string",
+              "minLength": 1
+            },
+            "service": {
+              "type": "string",
+              "minLength": 1
+            },
+            "recipient": {
+              "type": "string",
+              "minLength": 1
+            },
+            "data_classes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 1
+            },
+            "payload_sha256": {
+              "type": "string",
+              "pattern": "[a-f0-9]{64}"
+            },
+            "variant_sha256": {
+              "type": "string",
+              "pattern": "[a-f0-9]{64}"
+            },
+            "allows_tailored_text": {
+              "type": "boolean"
+            },
+            "company_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "opportunity_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "contact_id": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "kind",
+            "purpose",
+            "sender",
+            "provider",
+            "service",
+            "recipient",
+            "data_classes"
+          ],
+          "additionalProperties": false
+        },
+        "max_uses": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "valid_from": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "valid_until": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revoked_at": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "format": "date-time"
+            }
+          ]
+        },
+        "revocation_evidence": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "id",
+        "mode",
+        "scope",
+        "max_uses",
+        "valid_from",
+        "valid_until",
+        "evidence"
+      ],
+      "additionalProperties": false
+    },
+    "outbound_actions": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "outreach",
+            "diagnostic"
+          ]
+        },
+        "purpose": {
+          "enum": [
+            "application",
+            "cold_introduction",
+            "follow_up",
+            "diagnostic"
+          ]
+        },
+        "mode": {
+          "enum": [
+            "vacancy",
+            "company_problem",
+            "paid_project",
+            "diagnostic"
+          ]
+        },
+        "company_id": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        },
+        "opportunity_id": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        },
+        "contact_id": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 0
+        },
+        "service": {
+          "type": "string",
+          "minLength": 1
+        },
+        "data_classes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "inspection": {
+          "type": "object",
+          "properties": {
+            "payload_sha256": {
+              "type": "string",
+              "pattern": "[a-f0-9]{64}"
+            },
+            "variant_sha256": {
+              "type": "string",
+              "pattern": "[a-f0-9]{64}"
+            },
+            "variant": {
+              "type": "object",
+              "properties": {
+                "sender": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "provider": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "delivery_revision": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "template_revision": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "stable_links": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "minItems": 0
+                },
+                "attachment_revision": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "sender",
+                "provider",
+                "delivery_revision",
+                "template_revision",
+                "stable_links",
+                "attachment_revision"
+              ],
+              "additionalProperties": false
+            },
+            "sender": {
+              "type": "string",
+              "minLength": 1
+            },
+            "provider": {
+              "type": "string",
+              "minLength": 1
+            },
+            "recipient": {
+              "type": "string",
+              "minLength": 1
+            },
+            "headers": {
+              "type": "object"
+            },
+            "parity": {
+              "enum": [
+                "plain_only",
+                "html_only",
+                "matching",
+                "different"
+              ]
+            },
+            "attachments": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "bytes": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "[a-f0-9]{64}"
+                  }
+                },
+                "required": [
+                  "name",
+                  "type",
+                  "bytes",
+                  "sha256"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 0
+            },
+            "links": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "destination": {
+                    "type": "string"
+                  },
+                  "visible": {
+                    "type": "string"
+                  },
+                  "check": {
+                    "enum": [
+                      "unfetched",
+                      "reachable",
+                      "inconclusive",
+                      "broken"
+                    ]
+                  }
+                },
+                "required": [
+                  "destination",
+                  "visible",
+                  "check"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 0
+            },
+            "hidden_tags": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 0
+            },
+            "flags": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 0
+            },
+            "receiver_authentication": {
+              "enum": [
+                "unknown"
+              ]
+            },
+            "spam_score_interpretation": {
+              "enum": [
+                "heuristic_only"
+              ]
+            },
+            "limitations": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 1
+            },
+            "structure": {
+              "type": "object"
+            }
+          },
+          "required": [
+            "payload_sha256",
+            "variant_sha256",
+            "variant",
+            "sender",
+            "provider",
+            "recipient",
+            "headers",
+            "parity",
+            "attachments",
+            "links",
+            "hidden_tags",
+            "flags",
+            "receiver_authentication",
+            "spam_score_interpretation",
+            "limitations",
+            "structure"
+          ],
+          "additionalProperties": false
+        },
+        "permission_id": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "state": {
+                "enum": [
+                  "draft",
+                  "ready",
+                  "dispatching",
+                  "sent",
+                  "failed",
+                  "uncertain",
+                  "cancelled"
+                ]
+              },
+              "at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "evidence": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reconciliation": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "state",
+              "at",
+              "evidence"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1
+        },
+        "prior_application_acknowledgment": {
+          "type": "string",
+          "minLength": 1
+        },
+        "coordination_evidence": {
+          "type": "string",
+          "minLength": 1
+        },
+        "inbound_check": {
+          "type": "object",
+          "properties": {
+            "checked_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "coverage": {
+              "enum": [
+                "complete",
+                "partial",
+                "unknown"
+              ]
+            },
+            "obsolete": {
+              "type": "boolean"
+            },
+            "evidence": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "checked_at",
+            "coverage",
+            "obsolete",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "known_not_sent": {
+          "type": "boolean"
+        },
+        "retry_after": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "receiver_report": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "enum": [
+                "completed",
+                "blocked",
+                "skipped",
+                "unknown"
+              ]
+            },
+            "outcome": {
+              "enum": [
+                "pass",
+                "hard_bounce",
+                "temporary_bounce",
+                "spam_rejection",
+                "auth_failure",
+                "quota",
+                "missing_mailbox",
+                "missing_domain",
+                "unknown"
+              ]
+            },
+            "at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "evidence": {
+              "type": "string",
+              "minLength": 1
+            },
+            "receiver_evidence": {
+              "type": "string"
+            },
+            "authentication": {
+              "type": "object",
+              "properties": {
+                "spf": {
+                  "enum": [
+                    "pass",
+                    "fail",
+                    "unknown"
+                  ]
+                },
+                "dkim": {
+                  "enum": [
+                    "pass",
+                    "fail",
+                    "unknown"
+                  ]
+                },
+                "dmarc": {
+                  "enum": [
+                    "pass",
+                    "fail",
+                    "unknown"
+                  ]
+                }
+              },
+              "required": [
+                "spf",
+                "dkim",
+                "dmarc"
+              ],
+              "additionalProperties": false
+            },
+            "spamassassin_score": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "score_interpretation": {
+              "enum": [
+                "heuristic_only"
+              ]
+            },
+            "rules": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 0
+            },
+            "threshold": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "tested_payload_sha256": {
+              "type": "string",
+              "pattern": "[a-f0-9]{64}"
+            },
+            "recipient": {
+              "type": "string",
+              "minLength": 1
+            },
+            "source_locator": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "status",
+            "outcome",
+            "at",
+            "evidence",
+            "receiver_evidence",
+            "authentication",
+            "spamassassin_score",
+            "score_interpretation",
+            "rules",
+            "threshold",
+            "tested_payload_sha256",
+            "recipient",
+            "source_locator"
+          ],
+          "additionalProperties": false
+        },
+        "application_attempt_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "id",
+        "idempotency_key",
+        "kind",
+        "purpose",
+        "mode",
+        "company_id",
+        "opportunity_id",
+        "contact_id",
+        "reason",
+        "source_ids",
+        "service",
+        "data_classes",
+        "inspection",
+        "permission_id",
+        "events"
       ],
       "additionalProperties": false
     }

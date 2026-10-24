@@ -1,0 +1,65 @@
+name: Verify source and frozen release
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  python:
+    name: Python domain and storage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -B -m unittest discover -s tests -v
+      - name: Check frozen runtime and UI identity
+        run: |
+          python - <<'PYCODE'
+          import hashlib, json
+          from pathlib import Path
+          root = Path('.')
+          raw = (root / 'releases/1.0.0/RELEASE.json').read_bytes()
+          manifest = json.loads(raw)
+          index = json.loads((root / 'release.json').read_text())
+          assert hashlib.sha256(raw).hexdigest() == index['artifacts'][0]['manifest_sha256']
+          checked = 0
+          for name, record in manifest['files'].items():
+              path = None
+              if name.startswith('runtime/career/'):
+                  path = root / 'scripts' / name.removeprefix('runtime/')
+              elif name == 'runtime/career_bootstrap_entry.py':
+                  path = root / 'scripts/career_bootstrap.py'
+              elif name.startswith('skill/'):
+                  path = root / 'skills/career-agent' / name.removeprefix('skill/')
+              elif name.startswith('ui/'):
+                  path = root / 'ui/dist' / name.removeprefix('ui/')
+              if path is not None:
+                  assert hashlib.sha256(path.read_bytes()).hexdigest() == record['sha256'], name
+                  checked += 1
+          print('Frozen source/asset files verified:', checked)
+          PYCODE
+  ui:
+    name: UI source build and controls
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: node scripts/audit-kit.mjs

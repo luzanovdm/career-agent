@@ -1,0 +1,86 @@
+{
+  "designer": {
+    "name": "Casey Example",
+    "headline": "Product designer and UX researcher",
+    "experience": "Six years designing digital services for travel and community learning. Previously a product designer at Example Journey Cooperative and a research facilitator at Example Learning Lab.",
+    "claims": [
+      "Led 14 moderated booking-flow interviews and redesigned a service onboarding journey.",
+      "Facilitated 9 cross-functional research workshops with product, engineering, and operations.",
+      "Documented accessibility acceptance criteria for 22 reusable interface patterns."
+    ],
+    "skills": "Service journeys, moderated interviews, research synthesis, interaction design, accessible interface patterns, and cross-functional facilitation.",
+    "tracks": [
+      {"id": "design", "name": "Product design", "positioning": "Turn complex service journeys into clear, accessible experiences, grounded in research and delivery constraints."},
+      {"id": "research", "name": "UX research", "positioning": "Connect customer evidence to practical product decisions and shared understanding across teams."}
+    ],
+    "need": "a clearer booking and onboarding experience",
+    "story_question": "How did you turn an ambiguous customer problem into a design decision?",
+    "story_answer": "I framed the booking-flow research question, led 14 moderated interviews, and synthesized recurring points of friction. I then redesigned the onboarding journey and documented decisions for the delivery team. I can explain my contribution, but the evidence does not establish a conversion uplift.",
+    "team_question": "How do customer insights reach product planning, and which service journey needs attention first?",
+    "companies": ["Cedar Example Travel", "Fern Example Care", "Harbor Example Studio", "Juniper Example Systems", "Lighthouse Example Health", "Meadow Example Learning", "North Example Mobility", "Orchard Example Studio", "River Example Services", "Solace Example Products", "Tandem Example Collective", "Willow Example Learning"],
+    "roles": ["Product designer", "Research facilitator", "Senior product designer", "UX researcher", "Service designer", "Design researcher", "Product design lead", "Research partner", "UX research consultant", "Product designer", "Experience designer", "Research facilitator"]
+  },
+  "makeup": {
+    "name": "Jamie Example",
+    "headline": "Makeup artist and beauty educator",
+    "experience": "Seven years working across small studio productions, client consultations, and beginner education. Previously a studio makeup artist at Example Light Collective and an independent workshop educator.",
+    "claims": [
+      "Led makeup preparation for 24 studio productions, maintaining continuity notes for each shoot.",
+      "Designed and taught a 6-session beginner makeup workshop for 18 learners.",
+      "Created hygiene and kit-preparation checklists used by a 4-person studio team."
+    ],
+    "skills": "Production makeup, continuity notes, skin-preparation consultations, kit hygiene, beginner instruction, and practical demonstrations.",
+    "tracks": [
+      {"id": "artistry", "name": "Makeup artistry", "positioning": "Prepare consistent production looks with careful hygiene, continuity notes, and calm collaboration on set."},
+      {"id": "education", "name": "Beauty education", "positioning": "Teach practical beginner techniques through clear demonstrations and structured hands-on exercises."}
+    ],
+    "need": "consistent studio preparation and practical artist development",
+    "story_question": "How do you keep a production look consistent across a long shoot?",
+    "story_answer": "I record preparation, products, and continuity notes before the shoot and check them at each handover. Across 24 studio productions, my responsibility was makeup preparation and continuity documentation. I would discuss a specific fictional example without claiming a client result that is not recorded.",
+    "team_question": "What kinds of productions are most common, and how are continuity and hygiene responsibilities shared?",
+    "companies": ["Lumen Example Studio", "Aster Example Academy", "Saffron Example Productions", "Violet Example Learning", "Amber Example Collective", "Petal Example School", "Prism Example Studio", "Iris Example Academy", "Velvet Example Production", "Bloom Example Workshops", "Canvas Example Studio", "Dahlia Example Education"],
+    "roles": ["Studio makeup artist", "Workshop educator", "Lead makeup artist", "Beauty instructor", "Production makeup artist", "Makeup educator", "Studio artist", "Practical skills trainer", "Makeup continuity lead", "Workshop coordinator", "Freelance makeup artist", "Beauty course facilitator"]
+  },
+  "analyst": {
+    "name": "Robin Example",
+    "headline": "Systems analyst and business process analyst",
+    "experience": "Eight years documenting service workflows and integration requirements. Previously a systems analyst at Example Service Network and a process analyst at Example Operations Group.",
+    "claims": [
+      "Mapped 12 integration workflows and documented stakeholder-reviewed acceptance criteria.",
+      "Documented 8 service processes with diagrams reviewed by operations and engineering.",
+      "Maintained a requirements traceability register covering 36 business rules."
+    ],
+    "skills": "Requirements discovery, integration mapping, process diagrams, acceptance criteria, business rules, and stakeholder facilitation.",
+    "tracks": [
+      {"id": "systems", "name": "Systems analysis", "positioning": "Make integration behavior and acceptance criteria explicit so business and engineering teams can agree on delivery."},
+      {"id": "process", "name": "Business process analysis", "positioning": "Clarify service handovers, decisions, and business rules through stakeholder-reviewed process models."}
+    ],
+    "need": "clear integration requirements and reliable service handovers",
+    "story_question": "How do you resolve a disagreement about an integration requirement?",
+    "story_answer": "I identify the business rule, show the current workflow and exception path, and ask the relevant stakeholders to review an explicit acceptance criterion. The source records 12 mapped integration workflows and 36 traced business rules. It does not establish a financial or reliability improvement.",
+    "team_question": "Who owns acceptance of integration behavior, and how are exceptions represented in the current process?",
+    "companies": ["Northstar Example Systems", "Juniper Example Services", "Meridian Example Platform", "Cedar Example Operations", "Atlas Example Integration", "Birch Example Network", "Delta Example Systems", "Grove Example Services", "Vector Example Platform", "Pine Example Operations", "Signal Example Integration", "Elm Example Network"],
+    "roles": ["Systems analyst", "Process analyst", "Integration analyst", "Business process analyst", "Senior systems analyst", "Service process analyst", "Requirements analyst", "Operations analyst", "Integration consultant", "Business analyst", "Systems analyst", "Process facilitator"]
+  },
+  "hospitality": {
+    "name": "Taylor Example",
+    "headline": "Guest operations supervisor and service trainer",
+    "experience": "Nine years in guest service, shift coordination, and team onboarding. Previously a guest operations supervisor at Example Harbor House and a training coordinator at Example Welcome Group.",
+    "claims": [
+      "Coordinated guest-service handovers across 3 shifts with a shared escalation checklist.",
+      "Prepared onboarding materials and practical service exercises for 18 team members.",
+      "Documented 11 recurring guest-request scenarios for shift coaching."
+    ],
+    "skills": "Guest-service coordination, shift handovers, escalation routines, onboarding, practical coaching, and service scenario design.",
+    "tracks": [
+      {"id": "operations", "name": "Hospitality operations", "positioning": "Keep guest-service handovers clear and consistent across shifts, with explicit escalation and ownership."},
+      {"id": "training", "name": "Service training", "positioning": "Help new colleagues learn guest-service routines through practical exercises and usable reference materials."}
+    ],
+    "need": "consistent guest-service handovers and practical team onboarding",
+    "story_question": "How would you prepare a new colleague for a difficult guest handover?",
+    "story_answer": "I would use one of the 11 documented guest-request scenarios, clarify what the next shift needs to know, and practice the escalation checklist. My recorded contribution covers three-shift coordination and onboarding materials for 18 colleagues; no guest-satisfaction score is claimed.",
+    "team_question": "Where do guest-service handovers currently become difficult, and how much time is set aside for new-colleague coaching?",
+    "companies": ["Harbor Example Hotel", "Cedar Example Hospitality", "Beacon Example Lodge", "Maple Example Training", "Seabreeze Example House", "Welcome Example Academy", "Riverside Example Hotel", "Hearth Example Services", "Coast Example Lodge", "Acorn Example Hospitality", "Garden Example House", "Lantern Example Training"],
+    "roles": ["Guest operations supervisor", "Service training coordinator", "Front office supervisor", "Hospitality trainer", "Guest services lead", "Onboarding facilitator", "Shift operations lead", "Service coach", "Guest experience supervisor", "Training coordinator", "Front office supervisor", "Practical service trainer"]
+  }
+}

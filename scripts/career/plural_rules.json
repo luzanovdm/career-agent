@@ -1,0 +1,942 @@
+{
+  "source": "Node v26.8.1 ICU 78.3",
+  "kind": "cardinal",
+  "rules": {
+    "dz": [
+      "other"
+    ],
+    "af": [
+      "one",
+      "other"
+    ],
+    "ak": [
+      "one",
+      "other"
+    ],
+    "sq": [
+      "one",
+      "other"
+    ],
+    "am": [
+      "one",
+      "other"
+    ],
+    "an": [
+      "one",
+      "other"
+    ],
+    "ar": [
+      "zero",
+      "one",
+      "two",
+      "few",
+      "many",
+      "other"
+    ],
+    "hy": [
+      "one",
+      "other"
+    ],
+    "ars": [
+      "zero",
+      "one",
+      "two",
+      "few",
+      "many",
+      "other"
+    ],
+    "as": [
+      "one",
+      "other"
+    ],
+    "asa": [
+      "one",
+      "other"
+    ],
+    "ast": [
+      "one",
+      "other"
+    ],
+    "az": [
+      "one",
+      "other"
+    ],
+    "bal": [
+      "one",
+      "other"
+    ],
+    "bm": [
+      "other"
+    ],
+    "eu": [
+      "one",
+      "other"
+    ],
+    "be": [
+      "one",
+      "few",
+      "many",
+      "other"
+    ],
+    "bem": [
+      "one",
+      "other"
+    ],
+    "bn": [
+      "one",
+      "other"
+    ],
+    "bez": [
+      "one",
+      "other"
+    ],
+    "bg": [
+      "one",
+      "other"
+    ],
+    "bho": [
+      "one",
+      "other"
+    ],
+    "blo": [
+      "zero",
+      "one",
+      "other"
+    ],
+    "bo": [
+      "other"
+    ],
+    "bs": [
+      "one",
+      "few",
+      "other"
+    ],
+    "br": [
+      "one",
+      "two",
+      "few",
+      "many",
+      "other"
+    ],
+    "brx": [
+      "one",
+      "other"
+    ],
+    "my": [
+      "other"
+    ],
+    "ca": [
+      "one",
+      "many",
+      "other"
+    ],
+    "ce": [
+      "one",
+      "other"
+    ],
+    "ceb": [
+      "one",
+      "other"
+    ],
+    "cs": [
+      "one",
+      "few",
+      "many",
+      "other"
+    ],
+    "cgg": [
+      "one",
+      "other"
+    ],
+    "zh": [
+      "other"
+    ],
+    "chr": [
+      "one",
+      "other"
+    ],
+    "cv": [
+      "zero",
+      "one",
+      "other"
+    ],
+    "ckb": [
+      "one",
+      "other"
+    ],
+    "syr": [
+      "one",
+      "other"
+    ],
+    "sr-ME": [
+      "one",
+      "few",
+      "other"
+    ],
+    "sr": [
+      "one",
+      "few",
+      "other"
+    ],
+    "kw": [
+      "zero",
+      "one",
+      "two",
+      "few",
+      "many",
+      "other"
+    ],
+    "csw": [
+      "one",
+      "other"
+    ],
+    "cy": [
+      "zero",
+      "one",
+      "two",
+      "few",
+      "many",
+      "other"
+    ],
+    "da": [
+      "one",
+      "other"
+    ],
+    "de": [
+      "one",
+      "other"
+    ],
+    "doi": [
+      "one",
+      "other"
+    ],
+    "dv": [
+      "one",
+      "other"
+    ],
+    "mn": [
+      "one",
+      "other"
+    ],
+    "fa-AF": [
+      "one",
+      "other"
+    ],
+    "fa": [
+      "one",
+      "other"
+    ],
+    "dsb": [
+      "one",
+      "two",
+      "few",
+      "other"
+    ],
+    "nl": [
+      "one",
+      "other"
+    ],
+    "ee": [
+      "one",
+      "other"
+    ],
+    "et": [
+      "one",
+      "other"
+    ],
+    "el": [
+      "one",
+      "other"
+    ],
+    "en": [
+      "one",
+      "other"
+    ],
+    "eo": [
+      "one",
+      "other"
+    ],
+    "es": [
+      "one",
+      "many",
+      "other"
+    ],
+    "fo": [
+      "one",
+      "other"
+    ],
+    "ff": [
+      "one",
+      "other"
+    ],
+    "fi": [
+      "one",
+      "other"
+    ],
+    "fil": [
+      "one",
+      "other"
+    ],
+    "fr": [
+      "one",
+      "many",
+      "other"
+    ],
+    "fy": [
+      "one",
+      "other"
+    ],
+    "fur": [
+      "one",
+      "other"
+    ],
+    "ga": [
+      "one",
+      "two",
+      "few",
+      "many",
+      "other"
+    ],
+    "om": [
+      "one",
+      "other"
+    ],
+    "gd": [
+      "one",
+      "two",
+      "few",
+      "other"
+    ],
+    "ka": [
+      "one",
+      "other"
+    ],
+    "gl": [
+      "one",
+      "other"
+    ],
+    "gv": [
+      "one",
+      "two",
+      "few",
+      "many",
+      "other"
+    ],
+    "kok": [
+      "one",
+      "other"
+    ],
+    "gsw": [
+      "one",
+      "other"
+    ],
+    "gu": [
+      "one",
+      "other"
+    ],
+    "guw": [
+      "one",
+      "other"
+    ],
+    "ha": [
+      "one",
+      "other"
+    ],
+    "haw": [
+      "one",
+      "other"
+    ],
+    "sr-Latn": [
+      "one",
+      "few",
+      "other"
+    ],
+    "he": [
+      "one",
+      "two",
+      "other"
+    ],
+    "hi": [
+      "one",
+      "other"
+    ],
+    "hnj": [
+      "other"
+    ],
+    "hr": [
+      "one",
+      "few",
+      "other"
+    ],
+    "hsb": [
+      "one",
+      "two",
+      "few",
+      "other"
+    ],
+    "hu": [
+      "one",
+      "other"
+    ],
+    "ia": [
+      "one",
+      "other"
+    ],
+    "ig": [
+      "other"
+    ],
+    "is": [
+      "one",
+      "other"
+    ],
+    "id": [
+      "other"
+    ],
+    "io": [
+      "one",
+      "other"
+    ],
+    "ie": [
+      "one",
+      "other"
+    ],
+    "ii": [
+      "other"
+    ],
+    "iu": [
+      "one",
+      "two",
+      "other"
+    ],
+    "it": [
+      "one",
+      "many",
+      "other"
+    ],
+    "ja": [
+      "other"
+    ],
+    "jv": [
+      "other"
+    ],
+    "jbo": [
+      "other"
+    ],
+    "jgo": [
+      "one",
+      "other"
+    ],
+    "yi": [
+      "one",
+      "other"
+    ],
+    "jmc": [
+      "one",
+      "other"
+    ],
+    "kab": [
+      "one",
+      "other"
+    ],
+    "kaj": [
+      "one",
+      "other"
+    ],
+    "kl": [
+      "one",
+      "other"
+    ],
+    "kn": [
+      "one",
+      "other"
+    ],
+    "ks": [
+      "one",
+      "other"
+    ],
+    "kk": [
+      "one",
+      "other"
+    ],
+    "kcg": [
+      "one",
+      "other"
+    ],
+    "kde": [
+      "other"
+    ],
+    "kea": [
+      "other"
+    ],
+    "km": [
+      "other"
+    ],
+    "ky": [
+      "one",
+      "other"
+    ],
+    "kkj": [
+      "one",
+      "other"
+    ],
+    "ku": [
+      "one",
+      "other"
+    ],
+    "ko": [
+      "other"
+    ],
+    "ksb": [
+      "one",
+      "other"
+    ],
+    "ksh": [
+      "zero",
+      "one",
+      "other"
+    ],
+    "lag": [
+      "zero",
+      "one",
+      "other"
+    ],
+    "lo": [
+      "other"
+    ],
+    "lv": [
+      "zero",
+      "one",
+      "other"
+    ],
+    "lb": [
+      "one",
+      "other"
+    ],
+    "lg": [
+      "one",
+      "other"
+    ],
+    "lij": [
+      "one",
+      "other"
+    ],
+    "ln": [
+      "one",
+      "other"
+    ],
+    "lt": [
+      "one",
+      "few",
+      "many",
+      "other"
+    ],
+    "lkt": [
+      "other"
+    ],
+    "lld": [
+      "one",
+      "many",
+      "other"
+    ],
+    "mk": [
+      "one",
+      "other"
+    ],
+    "ml": [
+      "one",
+      "other"
+    ],
+    "mr": [
+      "one",
+      "other"
+    ],
+    "mas": [
+      "one",
+      "other"
+    ],
+    "ms": [
+      "other"
+    ],
+    "mg": [
+      "one",
+      "other"
+    ],
+    "mgo": [
+      "one",
+      "other"
+    ],
+    "mt": [
+      "one",
+      "two",
+      "few",
+      "many",
+      "other"
+    ],
+    "ro": [
+      "one",
+      "few",
+      "other"
+    ],
+    "nah": [
+      "one",
+      "other"
+    ],
+    "naq": [
+      "one",
+      "two",
+      "other"
+    ],
+    "nb": [
+      "one",
+      "other"
+    ],
+    "nr": [
+      "one",
+      "other"
+    ],
+    "nd": [
+      "one",
+      "other"
+    ],
+    "ne": [
+      "one",
+      "other"
+    ],
+    "nn": [
+      "one",
+      "other"
+    ],
+    "nnh": [
+      "one",
+      "other"
+    ],
+    "no": [
+      "one",
+      "other"
+    ],
+    "nqo": [
+      "other"
+    ],
+    "nso": [
+      "one",
+      "other"
+    ],
+    "ny": [
+      "one",
+      "other"
+    ],
+    "nyn": [
+      "one",
+      "other"
+    ],
+    "or": [
+      "one",
+      "other"
+    ],
+    "os": [
+      "one",
+      "other"
+    ],
+    "osa": [
+      "other"
+    ],
+    "pa": [
+      "one",
+      "other"
+    ],
+    "pap": [
+      "one",
+      "other"
+    ],
+    "ps": [
+      "one",
+      "other"
+    ],
+    "pcm": [
+      "one",
+      "other"
+    ],
+    "pl": [
+      "one",
+      "few",
+      "many",
+      "other"
+    ],
+    "pt": [
+      "one",
+      "many",
+      "other"
+    ],
+    "prg": [
+      "zero",
+      "one",
+      "other"
+    ],
+    "rm": [
+      "one",
+      "other"
+    ],
+    "rof": [
+      "one",
+      "other"
+    ],
+    "ru": [
+      "one",
+      "few",
+      "many",
+      "other"
+    ],
+    "rwk": [
+      "one",
+      "other"
+    ],
+    "sg": [
+      "other"
+    ],
+    "sah": [
+      "other"
+    ],
+    "saq": [
+      "one",
+      "other"
+    ],
+    "sat": [
+      "one",
+      "two",
+      "other"
+    ],
+    "sc": [
+      "one",
+      "other"
+    ],
+    "scn": [
+      "one",
+      "many",
+      "other"
+    ],
+    "sd": [
+      "one",
+      "other"
+    ],
+    "sdh": [
+      "one",
+      "other"
+    ],
+    "se": [
+      "one",
+      "two",
+      "other"
+    ],
+    "seh": [
+      "one",
+      "other"
+    ],
+    "ses": [
+      "other"
+    ],
+    "sgs": [
+      "one",
+      "two",
+      "few",
+      "many",
+      "other"
+    ],
+    "shi": [
+      "one",
+      "few",
+      "other"
+    ],
+    "si": [
+      "one",
+      "other"
+    ],
+    "sk": [
+      "one",
+      "few",
+      "many",
+      "other"
+    ],
+    "sl": [
+      "one",
+      "two",
+      "few",
+      "other"
+    ],
+    "sma": [
+      "one",
+      "two",
+      "other"
+    ],
+    "smi": [
+      "one",
+      "two",
+      "other"
+    ],
+    "smj": [
+      "one",
+      "two",
+      "other"
+    ],
+    "smn": [
+      "one",
+      "two",
+      "other"
+    ],
+    "sms": [
+      "one",
+      "two",
+      "other"
+    ],
+    "sn": [
+      "one",
+      "other"
+    ],
+    "so": [
+      "one",
+      "other"
+    ],
+    "st": [
+      "one",
+      "other"
+    ],
+    "ss": [
+      "one",
+      "other"
+    ],
+    "ssy": [
+      "one",
+      "other"
+    ],
+    "su": [
+      "other"
+    ],
+    "sv": [
+      "one",
+      "other"
+    ],
+    "sw": [
+      "one",
+      "other"
+    ],
+    "sw-CD": [
+      "one",
+      "other"
+    ],
+    "ta": [
+      "one",
+      "other"
+    ],
+    "te": [
+      "one",
+      "other"
+    ],
+    "teo": [
+      "one",
+      "other"
+    ],
+    "th": [
+      "other"
+    ],
+    "ti": [
+      "one",
+      "other"
+    ],
+    "tig": [
+      "one",
+      "other"
+    ],
+    "tk": [
+      "one",
+      "other"
+    ],
+    "tn": [
+      "one",
+      "other"
+    ],
+    "to": [
+      "other"
+    ],
+    "tpi": [
+      "other"
+    ],
+    "tr": [
+      "one",
+      "other"
+    ],
+    "ts": [
+      "one",
+      "other"
+    ],
+    "tzm": [
+      "one",
+      "other"
+    ],
+    "ug": [
+      "one",
+      "other"
+    ],
+    "uk": [
+      "one",
+      "few",
+      "many",
+      "other"
+    ],
+    "ur": [
+      "one",
+      "other"
+    ],
+    "uz": [
+      "one",
+      "other"
+    ],
+    "ve": [
+      "one",
+      "other"
+    ],
+    "vec": [
+      "one",
+      "many",
+      "other"
+    ],
+    "vi": [
+      "other"
+    ],
+    "vo": [
+      "one",
+      "other"
+    ],
+    "vun": [
+      "one",
+      "other"
+    ],
+    "wa": [
+      "one",
+      "other"
+    ],
+    "wae": [
+      "one",
+      "other"
+    ],
+    "wo": [
+      "other"
+    ],
+    "xh": [
+      "one",
+      "other"
+    ],
+    "xog": [
+      "one",
+      "other"
+    ],
+    "yo": [
+      "other"
+    ],
+    "yue": [
+      "other"
+    ],
+    "zu": [
+      "one",
+      "other"
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+# Performance acceptance method
+
+The current store is canonical SQLite with immutable material objects; earlier JSON whole-file measurements are historical, not the 1.0 execution path. Interactive pages use bounded projections and revision/filter-scoped queries, not all-blob hydration. Board counts are shared by six columns in one snapshot. Dirty edits do not trigger background replacement of editor content.
+
+Measure a reproducible fictional fixture containing 10k cases, contacts and historical activities. Record hardware, Python/SQLite versions, exact runtime/UI hashes, SQL plans, payload bytes, cold/warm samples and request counts. `tests/benchmark_runtime_1.py` is fixture setup/profiling only; its direct SQL is not an application integration API. Missing-cache reconstruction and complete export/doctor verification are reported separately from interactive reads. Cache recovery is proportional to store size and currently remains a disclosed latency limitation.
+
+The UI uses system fonts and local hashed static assets, gzip and immutable caching. Feature chunks are lazy loaded; no external fonts/CDNs are requested. Search is debounced, detail avoids hidden overview reloads, and durable change kinds scope revalidation. Server request and SSE resources are bounded. Cold UI load, warm navigation, page/filter/detail, command commit-to-visible and polling fallback are distinct measurements.
+
+CP2 accepted kit4 UI evidence is external to this source checkout: 20 unit tests and 22 browser tests passed. On its actual 10k fixture the recorded cold p50/p95 was 559/661 ms, warm 299/362 ms; table 217 ms, filter 485 ms including 300 ms debounce, detail 831 ms, save 226 ms, CLI-invocation-to-visible 590 ms and polling 1428 ms. Initial display was 100 cards or 50 table rows, one filter read and one detail read, no external/font downloads. These measurements concern the exact CP2 build and are not a CP3 installed performance claim.
+
+A separate read-only SQLite observer sampled committed revision every 5 ms and compared browser DOM timestamps. CP2 kit4 samples were 263/149/107 ms, with SELECT times 0.064/0.239/2.834 ms and polling/frame/clock uncertainty. These are three observed samples, not a guaranteed population p95. CLI process startup and backup time are excluded from this specific commit-to-visible definition and retained in the separate end-to-end measurement.
+
+CP3 adds bounded selected-object hash verification and reverse-linked integrity invalidation. Its backend and installed measurements must be recorded against the final archive in the frozen acceptance report. Do not reuse older numbers to claim the new candidate met a budget. No profiling mutates a real candidate workspace.

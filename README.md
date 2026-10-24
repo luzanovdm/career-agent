@@ -1,63 +1,67 @@
-# Career Agent
+# Career Agent 1.0.0
 
-A career assistant you use through conversation: review your experience, choose career directions, find roles and companies, prepare applications, track progress, and practice interviews. It keeps claims grounded in evidence and writes confidently without inventing achievements. When adapting a resume, it preserves the original achievements and numbers, clarifies their meaning in small batches, and checks the draft for unexplained losses.
+Career work through conversation, with an installed private workspace and an optional local React interface. Build a source-backed profile, explore several professions, find useful people and opportunities, prepare selected materials, reconcile application history, and practice interviews. The model supplies evidence, meaning and writing; the local tools validate and persist records. Nothing sends applications or messages automatically.
 
-## Start with a conversation
+The complete 1.0.0 platform archive is available from [the versioned release](https://github.com/luzanovdm/career-agent/releases/tag/v1.0.0). Only macOS arm64 has native clean-install acceptance evidence, on macOS 27.0.1. The declared macOS 11.0 minimum is untested; other platforms are not certified by this release. Existing private-workspace migration remains a separate, gated operation.
 
-1. **Load or activate the skill in your agent.** Use your host's supported skill installation/loading feature with the [complete release bundle](https://github.com/luzanovdm/career-agent/releases/latest/download/career-agent.zip). An instructions-only source-folder copy lacks bundled helper execution and release identity; choose the complete bundle for update support. In Codex or Claude Code, invoke `career-agent` through the host's skill command or picker after installation. Merely viewing a Markdown file does not activate a skill in every app. [Host-specific notes](docs/compatibility.md) explain the supported options.
-2. **Say what you need.** For example: “Help me set up my profile from my resume versions. Ask guided questions and wait before starting research.” You can also start with a selected vacancy, interview invitation or existing application history.
-3. **Upload or paste what you have.** Start with any available resume version. Older versions, relevant diplomas/certificates/courses, portfolio/GitHub, publications, recommendations and side projects are optional; a short checklist lets you skip or provide redacted copies. Missing files do not block useful work. If your host cannot read an attachment, the agent asks for readable pasted text.
-4. **Choose from short, useful suggestions.** The agent presents intake choices, clarifications and preferences in your host's native questionnaire when it supports one, with evidence-informed directions and ready-made answer choices plus free-text correction. Findings and explanations stay in chat. If this host/mode lacks an applicable questionnaire, it uses a short numbered text fallback without requiring a mode switch. You can edit them or say unknown, confidential or prefer not to disclose. It gathers the remaining important questions in compact batches.
-5. **Review and continue in chat.** Ask to start or pause research, prepare a particular role, import prior applications, practice an interview, or show progress. The agent operates available local utilities itself. You do not need to run scripts or edit JSON.
+## Download and verify
 
-Conversation and intake follow your language. Resume, cover-letter and interview language are separate choices for each role. Everything distributed in this source project is English.
+Use [the complete macOS arm64 archive](https://github.com/luzanovdm/career-agent/releases/download/v1.0.0/career-agent-1.0.0-macos-arm64.zip), with its detached RELEASE.json and SHA256SUMS from the same release. The ZIP SHA256 is `1d4483341e848f06552e18f3766277f8925d679c6234b81cd471cc2ee6189be4`. Verify locally before extraction or execution; the included bootstrap checks every managed file. Follow the included installed skill's installation reference through an agent with safe local execution. Use a new private workspace; legacy conversion is never automatic. The source checkout and its historical helpers are not a personal installation. Root release.json uses the 1.0 release-index format; the retired pre-1.0 descriptor/updater is not a compatibility path.
 
-Optional enrichment from selected accessible chats/memory can help identify strengths and private interview preparation needs. The agent asks once; skipping is fine. Access is limited to your chosen sources, suggestions require confirmation, and private growth areas never go into application materials. Native questions, previews, planning, connected files/mail/calendar and reminders are used only when supported and appropriately authorized; installation does not enable background monitoring.
+## Use through your agent
 
-## Where your information lives
+Load the complete platform bundle in a host that supports local execution, choose a private workspace outside this checkout, and choose UI locale. The agent verifies the exact archive and installs its bundled Python, prebuilt React assets and skill into that directory. Python and Node installations are not prerequisites for the installed app. After bootstrap, every application operation uses the workspace `.career-agent/career` launcher and the installed skill. Source/global execution is refused; explicit development mode is reserved for isolated fictional fixtures.
 
-When your host can write local files, the agent asks you to choose a friendly private location, such as **Documents/Career Agent**. It reuses the chosen workspace and keeps it outside the source repository and installed skill. It does not create a real candidate workspace merely because this project was downloaded.
+Talk in your preferred language. Document and interview languages are chosen separately per career track or role. English and Russian UI catalogs are included. Other translations can be created by the agent as validated workspace customizations and survive code updates. There is no translation service, account, hosted database, telemetry, external font or required paid integration.
 
-| In your private workspace | What it contains |
+The local interface uses React Aria Components throughout its interactive controls, with a shared visual layer, system fonts, keyboard support and system/light/dark themes. Board and table share selected records and SQLite transactions with the CLI. Simple edits save directly; complex research, writing and review actions show a scoped prompt to paste into your agent. Copying the prompt does not execute it or grant permission.
+
+## One source of truth
+
+| Workspace path | Responsibility |
 | --- | --- |
-| `Profile.md` | Readable career profile, directions, supported achievements and important unknowns |
-| `Originals/` | Immutable resume/source copies you authorize, or references to originals you keep elsewhere |
-| `Materials/` | Shared immutable resume/material versions, stored once with hashes |
-| `Applications/` | Company → exact vacancy → distinct attempt, with pinned relative material links/references, letters, form answers and evidence |
-| `Data/state.json` | Structured facts, constraints, source evidence, application history, attempts, responses and progress |
-| `Career.xlsx` | Generated view with **Applications** and **Metadata** sheets: readable rows, links, filters, frozen header and revision/export markers |
-| `Backups/` | Protected local state backups and retained prior generated views |
+| `Data/career.sqlite3` | Canonical entities, scoped answers, selected versions, activity history and durable changes |
+| `Objects/` | Immutable content addressed by SHA-256, including source evidence and material versions |
+| `Originals/` | Authorized original files kept outside release assets |
+| `Views/` | Derived CSV, XLSX, profile and read-only snapshots; never a second editable campaign store |
+| `Backups/` | Transaction backups and explicit portable database/object exports |
+| `.career-agent/` | Verified versioned runtime, active locator, bounded local-process control and mutable customizations |
 
-Unchanged resumes are reused through relative symlinks or portable reference files; the agent does not create another PDF for every application. Tailored content gets a distinct version, and earlier sent attempts retain their exact version/hash.
+Different people use different workspaces. Several tracks can share an evidence-backed claim bank without sharing scoped constraints or employer consent. Exact company/opportunity/person identity is preserved. Primary packet and selected version are explicit; later alternatives do not silently replace them. Prepared is not sent, receipt is not progress, and unknown response coverage is not silence. Uncertain transmissions block blind retries.
 
-The structured state is authoritative. The workbook is for inspection; ask the agent for changes. It checks the previous export fingerprint and preserves a manually edited workbook before any refresh decision. It does not silently treat spreadsheet edits as applications you sent. If an export fails, valid state stays saved and the agent says the view was not refreshed. Spreadsheet tracking reports use XLSX or CSV; the optional fixed HTML portal is a separate local view. CSV provides a plain application table with generation markers above its header; full provenance stays in canonical state. If your host cannot create either file, the agent offers a text/table handoff and clearly states that no spreadsheet was saved.
+Sources, achievements, ownership qualifiers, metrics and meaningful secondary strengths remain inspectable. Included or condensed achievements must bind used claims to actual resume spans, including original numerical tokens and recognized units. Base audits are reused by immutable reference with explicit target overlays. These checks catch mechanical losses; the model must still review source meaning, unsupported qualitative assertions and tone and state its limitations. A readable user assertion is evidence of that assertion, not independent corroboration.
 
-There is no author-operated server, hosted database or telemetry. Your chosen AI host and connected providers still receive data you use through them. Local files have no encryption guarantee. In plain chat without private file access, the agent works with conversation records and offers explicit export/import; it does not promise automatic persistence. [Storage details](docs/storage.md) explain profile switching and view freshness.
+Research starts only after an explicit scoped choice and stops on pause/revocation. An unchanged grant survives a new chat. Forms are secondary to useful evidenced people and professional routes. There is no research worker, sender, submission path or agreement-acceptance path in the local runtime.
 
-## Bring your existing history
+## Local lifecycle and safety
 
-Paste a list, upload a table/CSV/file, or provide what you remember. Sparse entries and approximate dates are welcome. The agent previews employer/role mappings, preserves uncertainty and reconciles duplicates without overwriting stronger evidence. A company contact does not mark every role at that company as applied. Prior sent, uncertain or bounced applications trigger a review before reapplying.
+`ui open` starts or reuses a matching loopback-only process. `ui status`, `ui stop` and `ui restart` use private current-user control, never PID guesses. The app uses exact Host/Origin checks, run-scoped authentication, CSRF protection, bounded typed endpoints and CSP. CLI commits invalidate the UI through durable change-log SSE, with reconnect and polling fallback. Dirty edits remain available on conflicts and disconnects.
 
-If an authorized Gmail or compatible mail connector is already available, the agent can offer a scoped **read-only** check of Sent and replies. Connection is optional. A thread is not automatically an application, and a user list is not proof of provider delivery. Import never sends mail, marks it read or starts research.
+No privileged install, firewall changes, boot service or persistent credential is needed. Closing a chat does not stop the local interface. A restart invalidates old sessions. Assets and runtime stay version coherent; an old process never silently consumes a changing development build.
 
-## Research and preparation
+## Existing workspaces
 
-“Find suitable opportunities” produces new saved application cases with ready-to-review Markdown packets, not just links. Known exact roles remain revisits. Draft resumes, covers, dossiers and form answers are .md; identical approved material versions are reused. PDF/DOCX conversion waits for a required upload or your explicit request. Undisclosed salary is acceptable with transparent company/market estimates or unknowns; your private floor is used internally. See [search completion](skills/career-agent/references/search-cases.md).
+Schema-1 JSON workspaces require the separate one-time offline importer under `maintenance/`. Rehearse only on restored disposable copies first. The importer inventories original bytes, normalizes recognized historical reference shapes individually, retains original records and quarantines unresolved references or semantics. Strict acceptance fails while quarantine remains. It does not activate the destination, manufacture current reviews, or silently drop data. Keep the original workspace and verified full backup authoritative until independent acceptance and writer handoff.
 
-Discovery covers job boards, freelance markets and companies found through product needs, engineering blogs, repositories and technology ecosystems. A company prospect without a verified opening stays separate from a vacancy. Research begins only when you choose; pause stops new lookups.
+The historical JSON helpers and their regression fixtures remain in source for audit/import development. They are excluded from the 1.0 installed runtime and are not a compatibility execution path.
 
-When available and authorized, local rdrr can extract public pages discovered through the host's search tools. It is optional, does not replace search, and cannot guarantee access to dynamic, PDF or protected content. Friends do not need an author account or service, and the skill never silently installs software. [Research-tool guidance](skills/career-agent/references/research-tools.md) explains fallbacks.
+## Engineering and verification
 
-Application and referral drafts never authorize sending, creating accounts or accepting agreements. The agent keeps private fit assessments separate from external claims, and a required salary field does not authorize disclosure of your private floor. Interview preparation can start from an invitation, readable role description and available profile; you do not need to finish every earlier phase first.
+See [development](docs/development.md), [architecture](docs/architecture.md), [storage](docs/storage.md), [API 1.0](docs/api/1.0.0.md), [performance](docs/state-performance.md) and the installed [skill](skills/career-agent/SKILL.md). Exact candidate hashes and passed/failed/not-run gates belong in the frozen acceptance report. Supported-platform declarations are not evidence of testing every platform or OS minimum.
 
-## For contributors
+UI screenshots and synthetic stories are maintained under `ui/demo-screenshots/` and `ui/demo/`. They show fictional beauty/training, hospitality, analysis and design careers; screenshots are illustrative evidence of the reviewed UI, not proof of backend release acceptance.
 
-This is a portable [Agent Skill](skills/career-agent/SKILL.md) plus optional, standard-library Python utilities. It has no automatic sending, scheduler, inbox integration or document parser of its own. Hosts provide the capabilities they actually support. See [architecture](docs/architecture.md), [developer operations and tests](docs/development.md), [state format](references/state-format.md), [project instructions](AGENTS.md) and the [MIT license](LICENSE).
 
-## Updates
+## Fictional interface examples
 
-A versioned bundle checks the public GitHub release descriptor on invocation when networking is available, using a 24-hour cache. Ask “Check career-agent updates” for a fresh check. A newer release offers Update/Later; installation changes require your approval and an idle workflow. Local edits are preserved, backups support interrupted-update recovery, and private career files are never migrated by the updater. Offline checks leave normal use available and do not claim the installed version is latest. This is on-invocation checking, not background monitoring.
+These captures use the independently reviewed kit4 UI and disposable fictional stories. Their observed backend is CP2; they illustrate available screens and do not serve as backend or installed-release acceptance proof.
 
-Older unversioned installations need one ordinary bootstrap update. A read-only host can download the complete versioned ZIP; an uploaded ChatGPT bundle requires explicit replacement/reloading through its supported surface. No platform auto-update behavior is assumed. See [release notes](CHANGELOG.md) and [maintenance details](skills/career-agent/references/updates.md).
+![Fictional designer: six shared case stages, two career tracks, Russian light theme](ui/demo-screenshots/readme/01-designer-board-ru-light.png)
 
-The optional local HTML portal uses one bundled fixed template and paged JSON data; XLSX/CSV remain supported. It is a generated private snapshot with separately exported browser notes, never a competing campaign database. See [portal workflow](skills/career-agent/references/portal.md).
+![Fictional makeup artist and trainer: selected message with person-first context](ui/demo-screenshots/readme/03-makeup-message-ru-light.png)
+
+![Fictional systems analyst: bounded shared table in English dark theme](ui/demo-screenshots/readme/07-analyst-table-en-dark.png)
+
+![Fictional hospitality work: mobile task context in Russian dark theme](ui/demo-screenshots/readme/12-hospitality-mobile-ru-dark.png)
+
+The [capture manifest](ui/demo-screenshots/readme/manifest.json) records all twelve screens, selected build hashes, fictional personas, locales and viewports.

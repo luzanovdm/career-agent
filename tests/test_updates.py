@@ -1,4 +1,6 @@
 """Synthetic release/cache/transaction tests; no network or candidate material."""
+from bundle_fixtures import legacy_bundle
+
 import copy
 import io
 import json
@@ -167,8 +169,8 @@ class UpdateTests(unittest.TestCase):
     def test_real_built_bundle_roundtrip_and_cached_cli_outside_source(self):
         import build_skill_bundle as builder
         with tempfile.TemporaryDirectory() as directory:
-            parent=Path(directory);root=parent/"skill";builder.build(root);archive=parent/"career-agent.zip";builder.archive_bundle(root,archive)
-            row=updates.descriptor(cs.load_json(ROOT/"release.json"));raw=archive.read_bytes()
+            parent=Path(directory);root=parent/"skill";fixture_descriptor=legacy_bundle(root);archive=parent/"career-agent.zip";builder.archive_bundle(root,archive)
+            row=updates.descriptor(fixture_descriptor);raw=archive.read_bytes()
             manifest=cs.load_json(root/"BUNDLE.json");manifest["release"]={**manifest["release"],"version":"0.0.1","tag":"v0.0.1"};(root/"BUNDLE.json").write_bytes(updates.encoded(manifest))
             cache=parent/"cache"
             result=updates.apply(root,row["release"]["version"],updates.digest(updates.encoded(row)),cache,True,True,transport=transport(row,raw,manifest))

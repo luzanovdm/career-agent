@@ -31,3 +31,5 @@ Include the verbatim achievement inventory, source metric spans/units/attributio
 The optional local HTML portal uses one bundled fixed template and paged JSON data; XLSX/CSV remain supported. It is a generated private snapshot with separately exported browser notes, never a competing campaign database. See [portal workflow](portal.md).
 
 Current packet selection and refresh/delivery receipts follow [packets](packets.md#prepare-refresh-and-deliver). Include the recorded scope, selected hashes and content-review status in handoff. Historical source folders and incidental chat exports remain distinct from the confirmed active workspace.
+
+Include shared employee/channel identities with independent evidence/confidence axes, minimal scoped suppression, outbound intent/event history and permission/revocation scope, exact/variant hashes, receiver reports and diagnostic cadence settings in private handoffs. These canonical records follow [outreach](outreach.md); diagnostics never become employer attempts.

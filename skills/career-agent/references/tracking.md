@@ -28,3 +28,5 @@ Use [history import](history-import.md) for prior lists/files or authorized read
 Before reporting search completion, run the [new-case persistence/readback/package checks](search-cases.md). Count accepted pay-uncertain ready packages transparently and keep conditional packages, revisits and unresolved prior submits separate. General prepared counts alone do not establish completed new-case quota.
 
 The optional local HTML portal uses one bundled fixed template and paged JSON data; XLSX/CSV remain supported. It is a generated private snapshot with separately exported browser notes, never a competing campaign database. See [portal workflow](portal.md).
+
+For email/contact activity, run the [outreach owner](outreach.md) summary and due check on session/batch start. Diagnostic actions are excluded from campaign counts. Preserve hard-failure/opt-out suppression and unresolved delivery claims across handoffs; a late inbound response cancels an obsolete follow-up. Missing diagnostics do not block independent preparation.

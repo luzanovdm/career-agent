@@ -1,4 +1,6 @@
 """Synthetic immutable-library, directory-layout, credential and CLI integration tests."""
+from bundle_fixtures import legacy_bundle_cli
+
 import copy
 import errno
 import json
@@ -197,7 +199,7 @@ class MaterialTests(unittest.TestCase):
     def test_self_contained_bundle_helpers_work_outside_checkout(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory); bundle = root / "bundle" / "career-agent"
-            build = subprocess.run([sys.executable, "-B", str(ROOT / "scripts/build_skill_bundle.py"), str(bundle)], capture_output=True, text=True)
+            build = legacy_bundle_cli(bundle)
             self.assertEqual(build.returncode, 0, build.stderr)
             manifest = state_api.load_json(bundle / "BUNDLE.json")
             for relative, expected in manifest["files"].items():
@@ -269,7 +271,9 @@ class MaterialTests(unittest.TestCase):
             unexpected = source / "skills/career-agent/references/alex-demo-private.md"
             unexpected.write_text("Synthetic note excluded from distribution.")
             output = root / "bundle"
-            with mock.patch.object(builder, "SOURCE", source): builder.build(output)
+            with mock.patch.object(builder, "SOURCE", source):
+                builder.write_release("0.3.0", ["Fictional legacy helper fixture; never publish."])
+                builder.build(output)
             self.assertFalse((output / "references/alex-demo-private.md").exists())
             manifest = state_api.load_json(output / "BUNDLE.json")
             self.assertNotIn("references/alex-demo-private.md", manifest["files"])

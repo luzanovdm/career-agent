@@ -48,3 +48,5 @@ This is the shared owner path for new and existing packets. [Achievement adaptat
 Bulk completion is coverage of the recorded selected IDs, including failed/unmapped items. Report reviewed-current, conditional/stale, unchanged historical submissions and failures with stated denominators. `all_updated` is current content review, `completed` additionally requires factual readiness, and neither is sending permission. Do not derive these claims from file counts, existence, timestamp or a rehashed old audit.
 
 Without helper execution, the same scope list, source/interpretation records, selected version hashes and actual readback live in the accessible dossier/export. Use available host tools and state which records/files could not be verified; do not create competing current-version stores.
+
+Email/contact preparation uses the mandatory supported [outreach owner path](outreach.md#executable-path): actual MIME inspection, contact/history guard, scoped permission, durable exact-payload claim and conservative reconciliation. Draft readiness, diagnostic freshness and sending permission remain separate.

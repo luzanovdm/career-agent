@@ -1,4 +1,6 @@
 """Supported spreadsheet formats, literal CSV cells and standalone release behavior."""
+from bundle_fixtures import legacy_bundle_cli
+
 import csv
 import hashlib
 import io
@@ -61,7 +63,7 @@ class SnapshotFormatTests(unittest.TestCase):
     def test_fresh_bundle_supports_only_spreadsheet_reports_outside_checkout(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory); bundle = root / "career-agent"; workspace = root / "private"
-            built = subprocess.run([sys.executable, "-B", str(ROOT / "scripts/build_skill_bundle.py"), str(bundle)], capture_output=True, text=True)
+            built = legacy_bundle_cli(bundle)
             self.assertEqual(built.returncode, 0, built.stderr)
             workspace.mkdir(); path = workspace / "state.json"; path.write_text(json.dumps(base()))
             command = [sys.executable, "-B", str(bundle / "scripts/career_snapshot.py"), "export", str(path), str(workspace), "--as-of", LATER]
