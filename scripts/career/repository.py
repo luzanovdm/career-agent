@@ -464,6 +464,20 @@ class Snapshot:
         for entries in reversed(chain):merged.update((entry['claim_id'],entry) for entry in entries)
         return merged
 
+    def numeric_context(self, case_id, claims, person_id=None):
+        """Reuse canonical names and only the target/person/used-claim source scope."""
+        case=self.get('case',case_id);company=self.get('company',case['company_id'])
+        source_ids=set(json.loads(case['detail']).get('source_ids',[]))
+        if person_id:
+            person=self.get('person',person_id)
+            source_ids.update(entry['source_id'] for entry in json.loads(person['detail']).get('sources',[]))
+        for claim in claims:
+            source_ids.update(row['source_id'] for row in self.rows('SELECT source_id FROM claim_sources WHERE claim_id=?',(claim['id'],)))
+        require(len(source_ids)<=1000,'REVIEW_CONTEXT_TOO_LARGE','Narrow the numeric source context')
+        sources=[self.get('source',source_id) for source_id in sorted(source_ids)]
+        require(sum(len(source['excerpt']) for source in sources)<=8*1024*1024,'REVIEW_CONTEXT_TOO_LARGE','Numeric evidence exceeds the bounded context')
+        return [company],sources
+
     def selection(self, packet_id, include_text=True,_contact=None,_eligibility=None,_packet=None,_case=None,version_id=None):
         from .contracts import issue
         packet = _packet if _packet and _packet['id']==packet_id else self.get('packet',packet_id)
@@ -552,7 +566,7 @@ class Snapshot:
         interview=[turn for slot in slots if slot['name']=='interview' for turn in project_interview_slot(slot,saved_dialogue_source)] if include_text else []
         return dict(reported_sent=bool(self.one("SELECT 1 FROM activities WHERE packet_id=? AND version_id=? AND kind='sent' LIMIT 1",(packet_id,version_id))) if include_text else None,is_selected=version_id==packet['selected_version_id'],created_at=version['created_at'],ordinal=version['ordinal'],interview=interview,task_progress=progress,delivery=dict(retry_blocked=bool(unresolved),unresolved_activity_ids=[r['id'] for r in unresolved]),packet_id=packet_id,version_id=version_id,case_id=packet['case_id'],person_id=packet['person_id'],
                     purpose=packet['purpose'],slots=slots,assessment=dict(saved=not any(entry['code']=='MATERIAL_CHANGED' for entry in issues),prepared=not issues,qualified=qualified,
-                    issues=issues,unknowns=[entry['message'] for entry in eligibility['unknown_details']],unknown_details=eligibility['unknown_details'],conditional=eligibility['conditional'],eligibility=eligibility['status'],limitations=[dict(code='REVIEW_LIMITATION',message=review['limitations'])] if review else []),review=dict(id=review['id'],findings=review['findings'],limitations=review['limitations'],tone_findings=json.loads(review['detail']).get('tone_findings')) if review else None,
+                    issues=issues,unknowns=[entry['message'] for entry in eligibility['unknown_details']],unknown_details=eligibility['unknown_details'],conditional=eligibility['conditional'],eligibility=eligibility['status'],limitations=[dict(code='REVIEW_LIMITATION',message=review['limitations'])] if review else []),review=dict(id=review['id'],findings=review['findings'],limitations=review['limitations'],tone_findings=json.loads(review['detail']).get('tone_findings'),numeric_audit=detail.get('numeric_audit') if include_text else None) if review else None,
                     version=packet['version'],used_claim_ids=json.loads(version['used_claim_ids']),answer_ids=json.loads(version['answer_ids']))
 
     def case_summary(self, case):
@@ -1530,7 +1544,12 @@ def compile_command(snapshot, command):
         from .binary import contact_checks
         issues.extend(contact_checks(data['documents'],applicable))
         review=data.get('review')
-        issues.extend(mechanical_review(data['documents'],claims,review,answers))
+        numeric_case=snapshot.get('case',packet['case_id'])
+        numeric_tracks=[row['track_id'] for row in snapshot.rows('SELECT track_id FROM case_tracks WHERE case_id=?',(packet['case_id'],))]
+        numeric_answers=[answer for answer in answers if snapshot.public_answer(answer,numeric_tracks,numeric_case)['value_reusable_here']]
+        numeric_entities,numeric_sources=snapshot.numeric_context(packet['case_id'],claims,packet['person_id'])
+        numeric_audit={}
+        issues.extend(mechanical_review(data['documents'],claims,review,numeric_answers,numeric_entities,numeric_sources,numeric_audit))
         for claim in claims:
             support=snapshot.one('SELECT 1 FROM claim_sources cs JOIN sources s ON s.id=cs.source_id WHERE cs.claim_id=? AND s.readable=1 AND length(trim(s.excerpt))>0 LIMIT 1',(claim['id'],))
             if not support:issues.append(issue('SOURCE_UNREADABLE','Used claim has no readable supporting observation; save actual confirming evidence separately',claim['id']))
@@ -1547,7 +1566,7 @@ def compile_command(snapshot, command):
                 baseline=snapshot.effective_coverage(base_id)
                 effective=dict(baseline);effective.update(overlay)
                 from .policy import coverage_issues
-                issues.extend(coverage_issues(data['documents'],claims,dict(review,coverage=list(effective.values()))))
+                issues.extend(coverage_issues(data['documents'],claims,dict(review,coverage=list(effective.values())),numeric_entities,numeric_sources))
                 used=set(data['used_claim_ids'])
                 for claim_id,entry in baseline.items():
                     choice=overlay.get(claim_id,entry)
@@ -1575,6 +1594,10 @@ def compile_command(snapshot, command):
         for answer in answers:
             dependency(version_id,'answer',answer,'mechanical-contact' if answer['meaning'].startswith('contact.') else 'eligibility')
             if answer['valid_until']:guards.append(answer['valid_until'])
+        numeric_refs={(entry['reference']['kind'],entry['reference']['record_id']) for entry in numeric_audit.get('occurrences',[]) if entry['role']=='reference'}
+        for kind,record_id in sorted(numeric_refs):
+            record=snapshot.get(kind,record_id)
+            statements.append(('INSERT OR IGNORE INTO dependencies VALUES (?,?,?,?,?)',[version_id,kind,record_id,record['version'],'entity-reference']))
         for source in refs('source',sorted(dialogue_source_ids)):dependency(version_id,'source',source,'interview-reference')
         target=snapshot.get('case',packet['case_id'])
         target_detail=json.loads(target['detail'])
@@ -1589,7 +1612,7 @@ def compile_command(snapshot, command):
             expiry=json.loads(person['detail']).get('valid_until')
             if expiry:guards.append(expiry)
         if review:
-            sql('INSERT INTO reviews VALUES (?,?,?,?,?)',new_id('review'),version_id,str(review['findings']),str(review['limitations']),canonical(dict(review,issues=issues)))
+            sql('INSERT INTO reviews VALUES (?,?,?,?,?)',new_id('review'),version_id,str(review['findings']),str(review['limitations']),canonical(dict(review,issues=issues,numeric_audit=numeric_audit)))
         sql('UPDATE packets SET selected_version_id=?,version=version+1 WHERE id=?',version_id,packet['id'])
         saved.extend([packet['id'],version_id]);kinds.extend(['packet','version']);selected_packets.append(packet['id'])
     elif intent=='artifact.attach':

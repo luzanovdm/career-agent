@@ -187,13 +187,15 @@ class BackupSafetyTests(unittest.TestCase):
         self.assertLessEqual(len(list(checkpoint.parent.glob('*.sqlite3'))),17)
 
     def test_brand_digits_are_not_metrics_but_real_signed_decimals_still_are(self):
-        self.assertEqual(['25','3,2','1,8','-3.2','+1.8'],number_tokens('n8n B2B 25% с3,2% до1,8% from-3.2 to+1.8'))
+        self.assertEqual(['8','2','25','3,2','1,8','-3.2','+1.8'],number_tokens('n8n B2B 25% с3,2% до1,8% from-3.2 to+1.8'))
         self.assertEqual(['825','2','2'],number_tokens('825 B2B2'))
         claim=dict(id='claim_test',assertion='Improved by 25%.',meaning='Personal measured improvement.',confirmation='confirmed',disclosure='allowed',contradicted=False)
         review=dict(findings='Checked actual words.',limitations='Mechanical check only.',tone_findings='Concrete.',claim_spans=[dict(claim_id='claim_test',text='Improved by 25%.')],coverage=[dict(claim_id='claim_test',disposition='included')])
         docs=[dict(slot='resume',text='Improved by 25%. Used n8n for B2B workflows.')]
-        self.assertFalse(mechanical_review(docs,[claim],review))
+        source=dict(id='source_numeric',version=1,locator='https://example.org',excerpt='Public tool n8n and contract term B2B.',readable=True)
+        review['entity_refs']=[dict(text=term,source_id=source['id']) for term in ('n8n','B2B')]
+        self.assertFalse(mechanical_review(docs,[claim],review,sources=[source]))
         docs[0]['text']+=' Unsupported 999% improvement.'
-        self.assertIn('UNMATCHED_NUMBER',{x['code'] for x in mechanical_review(docs,[claim],review)})
+        self.assertIn('UNMATCHED_NUMBER',{x['code'] for x in mechanical_review(docs,[claim],review,sources=[source])})
 
 if __name__=='__main__':unittest.main()
