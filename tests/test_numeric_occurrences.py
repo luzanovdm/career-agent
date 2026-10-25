@@ -117,6 +117,36 @@ class NumericOccurrenceTests(unittest.TestCase):
         issues,_=self.check('About D3. I earned 500PLN in 3months while handling 25kg.',review=review)
         self.assertEqual(['500','3','25'],[row['token'] for row in issues if row['code']=='UNMATCHED_NUMBER'])
 
+    def test_unknown_unit_identity_survives_spacing_and_punctuation_matrix(self):
+        units=('zł','rupees','quux','kWh','furlongs','₴','PLN')
+        formats=('{n}{u}.','{n} {u}.','{n}\t{u};','{n}\u00a0{u},','{n}\u202f{u})','{n} ({u}).','{n} «{u}».','{n}—{u}.','{n}.{u}','{n},{u}','{n}, {u}.','{n},\u00a0{u}.')
+        for unit in units:
+            expected=occurrences('500'+unit)[0]['unit']
+            self.assertIsNotNone(expected)
+            for fmt in formats:
+                text='Earned '+fmt.format(n='500',u=unit)
+                with self.subTest(unit=unit,fmt=fmt):self.assertEqual(expected,occurrences(text)[0]['unit'])
+
+    def test_unknown_unit_replacement_never_uses_unitless_numeric_support(self):
+        pairs=(('zł','rupees'),('quux','other'),('kWh','MWh'),('furlongs','yards'),('₴','₦'),('PLN','JPY'))
+        formats=('{n}{u}.','{n} {u}.','{n}\t{u};','{n}\u00a0{u},','{n}\u202f{u})','{n} ({u}).','{n} «{u}».','{n}—{u}.','{n}.{u}','{n},{u}','{n}, {u}.','{n},\u00a0{u}.')
+        for original_unit,changed_unit in pairs:
+            for original_format in formats:
+                original='Earned '+original_format.format(n='500',u=original_unit)
+                claim=dict(id='claim_currency',assertion=original,meaning=original,confirmation='confirmed',disclosure='allowed',contradicted=False)
+                for rendered_format in formats:
+                    for rendered_unit,accepted in ((original_unit,True),(changed_unit,False)):
+                        rendered='Earned '+rendered_format.format(n='500',u=rendered_unit)
+                        review=dict(self.review,claim_spans=[dict(claim_id=claim['id'],text=rendered)],coverage=[dict(claim_id=claim['id'],disposition='included')])
+                        with self.subTest(original=original,rendered=rendered):
+                            issues,_=self.check(rendered,claims=[claim],review=review)
+                            self.assertEqual(accepted,not issues,issues)
+
+    def test_ordinary_number_prose_and_sentence_boundaries_are_not_units(self):
+        for text in ('At 3 I started.', 'Version 3 was released.', 'There were 3 in 2020.', 'Choose 3 and 4.', 'Count: 3. Next step.', 'Count: 3, then continue.', 'В 2026 я начал.'):
+            with self.subTest(text=text):self.assertTrue(all(row['unit'] is None for row in occurrences(text)))
+        self.assertFalse(self.check('P2P.org Icons8 D3 n8n B2B.')[0])
+
     def test_scalar_answer_authority_is_bound_to_an_exact_field_span(self):
         answer=dict(id='answer_pay',meaning='compensation.external.salary',disposition='answered',value='5000',units='{"currency":"USD"}')
         text='Expected 5000 USD. Managed 5000 people.'
@@ -177,3 +207,14 @@ class NumericRepositoryTests(unittest.TestCase):
         with self.assertRaises(CareerError):f.command('packet.save',packet_id='packet_measurements',documents=[dict(slot='message',text='I earned 500PLN in 3months while handling 25kg.')],used_claim_ids=[],review=review)
         self.assertEqual(before,f.tasks.context()['revision'])
         with f.tasks.repository.open() as snap:self.assertIsNone(snap.get('packet','packet_measurements')['selected_version_id'])
+
+    def test_facade_changed_spaced_currency_is_partial_not_prepared(self):
+        f=self.fx
+        f.command('source.capture',id='source_one',locator='https://northstar.example/team',excerpt='Alex Example earned 500 zł.',observed_at='2026-10-25T00:00:00Z',readable=True)
+        f.command('claim.save',id='claim_currency',assertion='Earned 500 zł.',meaning='Earned 500 zł.',source_ids=['source_one'],confirmation='confirmed',disclosure='allowed')
+        f.command('packet.create',id='packet_currency',case_id='case_one',purpose='contact')
+        review=dict(findings='Compared mapped fictional currency.',limitations='Mechanical unit identity only.',tone_findings='Direct.',claim_spans=[dict(claim_id='claim_currency',text='Earned 500 rupees.')],coverage=[dict(claim_id='claim_currency',disposition='included')])
+        result=f.command('packet.save',packet_id='packet_currency',documents=[dict(slot='message',text='Earned 500 rupees.')],used_claim_ids=['claim_currency'],review=review)
+        self.assertEqual('partial',result['outcome']);self.assertIn('UNMATCHED_NUMBER',{row['code'] for row in result['issues']})
+        selected=f.tasks.query('selection',record_id='packet_currency');self.assertFalse(selected['assessment']['prepared'])
+        occurrence=selected['review']['numeric_audit']['occurrences'][0];self.assertEqual('opaque:rupees',occurrence['unit']);self.assertFalse(occurrence['supported'])

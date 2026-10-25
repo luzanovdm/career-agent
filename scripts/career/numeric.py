@@ -6,7 +6,7 @@ import unicodedata
 from urllib.parse import urlsplit
 from .contracts import require, issue
 
-POLICY = 'career-agent.numeric-occurrences/2'
+POLICY = 'career-agent.numeric-occurrences/3'
 EXTERNAL = frozenset(('resume', 'message', 'answers'))
 NUMBER = re.compile(r'(?<!\d)[+\-−]?\d+(?:[.,]\d+)*')
 IDENTIFIER = re.compile(r'(?<!\w)[^\W_]+(?:[._-][^\W_]+)*(?!\w)')
@@ -51,6 +51,39 @@ def _unit_token(value):
     return result
 
 
+# These grammatical followers introduce prose, not a measurement noun. Unknown content
+# words are retained as opaque candidates, not claimed to be understood units.
+PROSE_FOLLOWERS = frozenset(('and','or','but','nor','yet','then','while','when','where','which','who',
+    'that','than','as','at','by','for','from','in','into','of','on','to','until','with','without',
+    'is','are','was','were','be','been','being','has','have','had','will','would','can','could',
+    'i','we','you','he','she','it','they','a','an','the',
+    'и','или','но','а','что','когда','где','который','чем','в','во','на','с','со','до','по','из','от','для',
+    'я','мы','вы','он','она','они','это','был','была','были','будет','было',
+    'i','lub','ale','w','we','na','do','od','dla','z','ze','jest','był','była','było','były','będzie','ja','my'))
+UNIT_OPENERS = frozenset('([{"\'«“‘:=–—-')
+
+
+def suffix_unit(following):
+    """Preserve ambiguous measurement identity across Unicode space and unit wrappers.
+
+    A known grammatical connector stays unitless. An adjacent unknown content word
+    remains opaque; matching it is not a semantic assertion that it is a real unit.
+    Sentence punctuation before the word is a boundary, not a unit separator.
+    """
+    value=following.lstrip()
+    # Joined punctuation may decorate an explicit suffix; spaced sentence stops do not.
+    if value.startswith((',', '_')):value=value[1:].lstrip()
+    elif len(value)>1 and value[0]=='.' and bool(_unit_token(value[1:])):value=value[1:]
+    for _ in range(4):
+        if not value or value[0] not in UNIT_OPENERS:break
+        value=value[1:].lstrip()
+    suffix=_unit_token(value)
+    if not suffix:return None
+    normalized=normalize_unit(suffix)
+    if normalized.startswith('opaque:') and suffix.casefold() in PROSE_FOLLOWERS:return None
+    return normalized
+
+
 def _enclosing_identifier(text,match):
     left=max(0,match.start()-129);right=min(len(text),match.end()+129)
     for token in IDENTIFIER.finditer(text,left,right):
@@ -69,18 +102,14 @@ def quantity_unit(text, match, token=None):
     if prefix and (prefix.start()==0 or not before[prefix.start()-1].isalnum()):return normalize_unit(prefix.group(1))
     # Any number-leading alphanumeric token is a quantity/ambiguous measure, even an unseen unit.
     if token and token.start()==match.start():
-        suffix=_unit_token(text[match.end():token.end()])
+        suffix=_unit_token(text[match.end():token.end()].lstrip('._-'))
         if suffix:return normalize_unit(suffix)
     # Lowercase unit-before-value notation is conservative ambiguity, not an entity exception.
     if token and token.end()==match.end():
         prefix=text[token.start():match.start()]
         if prefix.isalpha() and (prefix.islower() or len(prefix)==2 and prefix.isupper()):return normalize_unit(prefix)
     if token:return None
-    stripped=following.lstrip(' \t');suffix=_unit_token(stripped)
-    if suffix:
-        normalized=normalize_unit(suffix)
-        if not following.startswith((' ','\t')) or not normalized.startswith('opaque:'):return normalized
-    return None
+    return suffix_unit(following)
 
 
 def quantity_shaped(value):

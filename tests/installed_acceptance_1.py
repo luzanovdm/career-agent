@@ -259,6 +259,15 @@ print(json.dumps(dict(status='passed',revision=revision)))
             assert refused.returncode==2 and 'INVALID_REVIEW' in refused.stderr
             assert cli('context')[0]['revision']==revision
             checks.append('Installed exact unrelated-product measurement entity bypass is refused atomically without a packet version or business revision')
+            command('source.capture',id='source_currency',locator='https://currency.example/confirmation',excerpt='Alex Example earned 500 zł.',observed_at='2026-10-25T00:00:00Z',readable=True)
+            command('claim.save',id='claim_currency',assertion='Earned 500 zł.',meaning='Earned 500 zł.',source_ids=['source_currency'],confirmation='confirmed',disclosure='allowed')
+            command('case.capture',id='case_currency',company_id='company_numeric',title='Fictional currency check',kind='speculative',route='unknown',tracks=[dict(id='track_installed',rationale='Synthetic currency preservation')],source_ids=['source_currency'],essential_policy='passed')
+            command('packet.create',id='packet_currency',case_id='case_currency',purpose='contact')
+            currency_review=dict(findings='Compared exact fictional currency.',limitations='Opaque identity is not semantic unit understanding.',tone_findings='Direct.',claim_spans=[dict(claim_id='claim_currency',text='Earned 500 rupees.')],coverage=[dict(claim_id='claim_currency',disposition='included')])
+            changed,_=command('packet.save',packet_id='packet_currency',documents=[dict(slot='message',text='Earned 500 rupees.')],used_claim_ids=['claim_currency'],review=currency_review)
+            assert changed['outcome']=='partial' and 'UNMATCHED_NUMBER' in {entry['code'] for entry in changed['issues']}
+            selected,_=cli('deliver','packet_currency',allowed=(0,3));assert not selected['assessment']['prepared'] and selected['review']['numeric_audit']['occurrences'][0]['unit']=='opaque:rupees'
+            checks.append('Installed changed unknown spaced currency stays opaque and partial, never prepared by an equal unitless numeral')
             failed_archive=parent/'fictional-failed-update.zip';failed_sha,failed_id=update_fixture(archive,failed_archive,fail_context=True)
             before_pointer=json.loads((workspace/'.career-agent/active.json').read_text())
             failed=subprocess.run([str(launcher),'app','update','--archive',str(failed_archive),'--sha256',failed_sha],capture_output=True,text=True,env=environment,cwd=parent,timeout=60)

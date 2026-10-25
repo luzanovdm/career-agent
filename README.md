@@ -6,7 +6,7 @@ The complete 1.0.0 platform archive is available from [the versioned release](ht
 
 ## Download and verify
 
-Use [the complete macOS arm64 archive](https://github.com/luzanovdm/career-agent/releases/download/v1.0.2/career-agent-1.0.2-macos-arm64.zip), with its detached RELEASE.json and SHA256SUMS from the same release. The ZIP SHA256 is `ef1abcb4e9e084efa5034546bdd5c434ba7e9c7984c711b923297cb47df033c6`. Verify locally before extraction or execution; the included bootstrap checks every managed file. Follow the included installed skill's installation reference through an agent with safe local execution. Use a new private workspace; legacy conversion is never automatic. The source checkout and its historical helpers are not a personal installation. Root release.json uses the 1.0 release-index format; the retired pre-1.0 descriptor/updater is not a compatibility path.
+Use [the complete macOS arm64 archive](https://github.com/luzanovdm/career-agent/releases/download/v1.0.2/career-agent-1.0.2-macos-arm64.zip), with its detached RELEASE.json and SHA256SUMS from the same release. The ZIP SHA256 is `b2ae2e17c28689512de0b9480935497d29a1be74ed1983ee039922a60167267e`. Verify locally before extraction or execution; the included bootstrap checks every managed file. Follow the included installed skill's installation reference through an agent with safe local execution. Use a new private workspace; legacy conversion is never automatic. The source checkout and its historical helpers are not a personal installation. Root release.json uses the 1.0 release-index format; the retired pre-1.0 descriptor/updater is not a compatibility path.
 
 ## Use through your agent
 

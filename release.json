@@ -8,11 +8,11 @@
     {
       "platform": "macos-arm64",
       "archive": "career-agent-1.0.2-macos-arm64.zip",
-      "sha256": "ef1abcb4e9e084efa5034546bdd5c434ba7e9c7984c711b923297cb47df033c6",
-      "bytes": 22586202,
-      "release_id": "1.0.2-macos-arm64-e3474b836ab42ca0",
+      "sha256": "b2ae2e17c28689512de0b9480935497d29a1be74ed1983ee039922a60167267e",
+      "bytes": 22587008,
+      "release_id": "1.0.2-macos-arm64-7506efe6e82d7e3c",
       "manifest": "RELEASE.json",
-      "manifest_sha256": "f3332aed2d38b67edbe8eedc2f2ecb52c32cdf589da680d2868c5d7661a9f420",
+      "manifest_sha256": "68a84fb0ad3c4387cc140c148b63c4cdf379ed640ef5c97d028ad6273d0c5bc0",
       "tested_os": "macOS 27.0.1 arm64",
       "declared_minimum_os": "11.0",
       "minimum_os_tested": false
