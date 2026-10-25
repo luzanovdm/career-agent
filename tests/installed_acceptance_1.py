@@ -223,7 +223,7 @@ with patch('career.repository.shutil.disk_usage',return_value=shutil._ntuple_dis
  except CareerError as error:assert error.code=='DISK_SPACE_LOW' and error.status==507
  else:raise AssertionError('Low disk was not rejected')
 assert tasks.context()['revision']==revision
-assert number_tokens('n8n B2B 25%')==['25']
+assert number_tokens('n8n B2B 25%')==['8','2','25']  # Raw scanner; scoped review resolves reference roles.
 source=sqlite3.connect('file:'+sys.argv[3]+'?mode=ro&immutable=1',uri=True);restored=sqlite3.connect(':memory:')
 source.backup(restored)
 assert restored.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
@@ -237,6 +237,19 @@ print(json.dumps(dict(status='passed',revision=revision)))
             assert probe.returncode==0,probe.stdout+probe.stderr
             assert hashlib.sha256((workspace/'Data/career.sqlite3').read_bytes()).hexdigest()==before_hash
             checks.append('Installed bounded checkpoint retention, verified restore, typed low-disk refusal without mutation, and identifier-number distinction')
+            command('company.capture',id='company_numeric',name='Icons8',domain='icons.example')
+            command('source.capture',id='source_numeric',locator='https://tools.example/reference',excerpt='Fictional reference: Icons8 uses named D3, n8n and B2B concepts.',observed_at='2026-10-25T00:00:00Z',readable=True)
+            command('case.capture',id='case_numeric',company_id='company_numeric',title='Fictional tooling need',kind='need',route='unknown',tracks=[dict(id='track_installed',rationale='Synthetic numeric reference check')],source_ids=['source_numeric'],essential_policy='passed')
+            command('packet.create',id='packet_numeric',case_id='case_numeric',purpose='contact')
+            numeric_review=dict(findings='Compared exact canonical name and scoped source identifiers.',limitations='Does not certify semantic truth.',tone_findings='Concrete.',claim_spans=[],coverage=[],entity_refs=[dict(text=value,source_id='source_numeric') for value in ('D3','n8n','B2B')])
+            good,_=command('packet.save',packet_id='packet_numeric',documents=[dict(slot='message',text='Icons8: D3 n8n B2B.')],used_claim_ids=[],review=numeric_review);assert good['outcome']=='satisfied'
+            current,_=cli('deliver','packet_numeric');assert current['assessment']['prepared'] and all(entry['role']=='reference' for entry in current['review']['numeric_audit']['occurrences'])
+            good_version=current['version_id'];good_hash=current['slots'][0]['sha256']
+            bad,_=command('packet.save',packet_id='packet_numeric',documents=[dict(slot='message',text='Icons8: D3 n8n B2B. Managed 8 engineers for 3 years; improved by 999%.')],used_claim_ids=[],review=numeric_review)
+            assert bad['outcome']=='partial' and {'8','3','999'}=={entry['token'] for entry in bad['issues'] if entry['code']=='UNMATCHED_NUMBER'}
+            historical,_=cli('query','selection','--id','packet_numeric','--version-id',good_version);assert historical['assessment']['prepared'] and historical['slots'][0]['sha256']==good_hash
+            command('packet.select',packet_id='packet_numeric',version_id=good_version)
+            checks.append('Installed canonical/source entity occurrences do not authorize independent counts, durations or percent claims; historical exact bytes stay unchanged')
             failed_archive=parent/'fictional-failed-update.zip';failed_sha,failed_id=update_fixture(archive,failed_archive,fail_context=True)
             before_pointer=json.loads((workspace/'.career-agent/active.json').read_text())
             failed=subprocess.run([str(launcher),'app','update','--archive',str(failed_archive),'--sha256',failed_sha],capture_output=True,text=True,env=environment,cwd=parent,timeout=60)
@@ -248,7 +261,7 @@ print(json.dumps(dict(status='passed',revision=revision)))
             pending=dict(request_id='pending_before_update',expected_revision=revision,intent='case.note',input=dict(case_id='case_installed',text='Pending bounded plan before code update.'))
             planned,_=cli('plan',input=pending)
             db_hash=hashlib.sha256((workspace/'Data/career.sqlite3').read_bytes()).hexdigest()
-            next_archive=parent/'fictional-compatible-update.zip';next_sha,next_id=update_fixture(archive,next_archive,version='1.0.2')
+            next_archive=parent/'fictional-compatible-update.zip';major,minor,patch=map(int,manifest['version'].split('.'));next_sha,next_id=update_fixture(archive,next_archive,version=str(major)+'.'+str(minor)+'.'+str(patch+1))
             updated=subprocess.run([str(launcher),'app','update','--archive',str(next_archive),'--sha256',next_sha],capture_output=True,text=True,env=environment,cwd=parent,timeout=60)
             assert updated.returncode==0,updated.stdout+updated.stderr
             assert cli('app','status')[0]['release_id']==next_id

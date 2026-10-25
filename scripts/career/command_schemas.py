@@ -16,7 +16,8 @@ def shapes():
     policy=obj(dict(state=enum('inherit','known','no_preference','unknown'),value={}),['state'])
     route=obj(dict(kind=enum('profile','email','form','website'),value=dict(type='string',maxLength=4096),source_id=ID))
     coverage=obj(dict(claim_id=ID,disposition=enum('included','condensed','private','excluded','pending'),reason=TEXT),['claim_id','disposition'])
-    review=obj(dict(findings=TEXT,limitations=TEXT,tone_findings=TEXT,claim_spans=array(obj(dict(claim_id=ID,text=TEXT))),coverage=array(coverage),base_coverage_version_id=ID),['findings','limitations','tone_findings','claim_spans','coverage'])
+    entity_span=dict(oneOf=[obj(dict(slot=enum('resume','message','answers'),start=dict(type='integer',minimum=0),end=dict(type='integer',minimum=1),text=TEXT,source_id=ID)),obj(dict(slot=enum('resume','message','answers'),start=dict(type='integer',minimum=0),end=dict(type='integer',minimum=1),text=TEXT,company_id=ID))])
+    review=obj(dict(entity_refs=array(obj(dict(text=dict(type='string',minLength=2,maxLength=128),source_id=ID))),entity_spans=array(entity_span),answer_spans=array(obj(dict(answer_id=ID,text=TEXT))),findings=TEXT,limitations=TEXT,tone_findings=TEXT,claim_spans=array(obj(dict(claim_id=ID,text=TEXT))),coverage=array(coverage),base_coverage_version_id=ID),['findings','limitations','tone_findings','claim_spans','coverage'])
     unknown=obj(dict(code=TEXT,subject=TEXT,message=TEXT,source_ids=IDS))
     return dict(scope=scope,policy=policy,route=route,coverage=coverage,review=review,unknown=unknown)
 

@@ -1,6 +1,13 @@
 /** Checked against docs/api/1.0.0.md; business state is always a server projection. */
 export type Theme = "system" | "light" | "dark";
 export interface Issue {
+  slot?: string;
+  start?: number;
+  end?: number;
+  token?: string;
+  role?: "quantity";
+  unit?: string | null;
+  offset_unit?: "unicode_code_points";
   required_bytes?: number;
   free_bytes?: number;
   code: string;
@@ -191,6 +198,7 @@ export interface Selection {
     unknowns: string[];
   };
   review: {
+    numeric_audit?: { policy: string; offset_unit: "unicode_code_points"; occurrences: Array<{ slot: string; supported: boolean; text: string; start: number; end: number; role: "quantity" | "reference"; unit: string | null; reference?: { text: string; kind: "company" | "source"; record_id: string; record_version: number } }> } | null;
     id: string;
     findings: unknown;
     limitations: unknown;

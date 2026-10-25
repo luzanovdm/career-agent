@@ -2,6 +2,7 @@
 import re
 from urllib.parse import urlsplit
 from .contracts import issue, require
+from .numeric import number_tokens, numeric_review, occurrences, reference_index
 
 
 def safe_route(kind, value):
@@ -41,7 +42,7 @@ def resolve_policy(defaults, overrides, task):
     return result
 
 
-def mechanical_review(documents, claims, review, answers=()):
+def mechanical_review(documents, claims, review, answers=(), entities=(), sources=(), numeric_audit=None):
     issues = []
     joined = '\n'.join(d['text'] for d in documents if d['slot'] in ('resume','message','answers'))
     for claim in claims:
@@ -49,25 +50,21 @@ def mechanical_review(documents, claims, review, answers=()):
             issues.append(issue('CLAIM_NOT_REUSABLE','Used claim is unconfirmed, private or disputed',claim['id']))
     if not review:
         return issues + [issue('REVIEW_REQUIRED','Draft requires concrete fact and tone review')]
-    require(isinstance(review,dict) and {'findings','limitations','claim_spans','tone_findings','coverage'} <= set(review) <= {'findings','limitations','claim_spans','tone_findings','coverage','base_coverage_version_id'},
+    require(isinstance(review,dict) and {'findings','limitations','claim_spans','tone_findings','coverage'} <= set(review) <= {'findings','limitations','claim_spans','tone_findings','coverage','base_coverage_version_id','entity_spans','entity_refs','answer_spans'},
             'INVALID_REVIEW','Review requires findings, limitations, claim_spans, tone_findings and coverage')
     require(review['findings'] and review['tone_findings'] and review['limitations'], 'INVALID_REVIEW','Review must report actual findings and limits')
-    allowed_numbers = set()
     mapped = set()
     for span in review['claim_spans']:
         require(isinstance(span,dict) and set(span) == {'claim_id','text'}, 'INVALID_REVIEW','Claim span requires exact claim_id/text')
         claim = next((c for c in claims if c['id']==span['claim_id']), None)
         require(claim is not None and span['text'] and span['text'] in joined,'UNSUPPORTED_CLAIM','Claim span must map an actual external span to a used claim')
         mapped.add(claim['id'])
-        allowed_numbers.update(number_tokens(claim['assertion']+' '+claim['meaning']))
     for claim in claims:
         if claim['id'] not in mapped:
             issues.append(issue('CLAIM_COVERAGE_GAP','Used claim lacks exact external wording mapping',claim['id']))
-    for answer in answers:
-        if answer['meaning'].startswith(('contact.','compensation.external')) and answer['disposition']=='answered':
-            allowed_numbers.update(number_tokens(str(answer['value'])))
-    for number in set(number_tokens(joined)) - allowed_numbers:
-        issues.append(issue('UNMATCHED_NUMBER','Unmatched numerical assertion: '+number))
+    numeric_issues,audit = numeric_review(documents,claims,review,answers,entities,sources)
+    issues.extend(numeric_issues)
+    if numeric_audit is not None:numeric_audit.update(audit)
     for coverage in review['coverage']:
         require(isinstance(coverage,dict) and 'claim_id' in coverage and coverage.get('disposition') in ('included','condensed','private','excluded','pending'),
                 'INVALID_REVIEW','Coverage needs claim_id and supported disposition')
@@ -75,13 +72,14 @@ def mechanical_review(documents, claims, review, answers=()):
             require(bool(coverage.get('reason')), 'COVERAGE_GAP','Exclusions require concrete provenance/reason')
         if coverage['disposition']=='pending':
             issues.append(issue('COVERAGE_GAP','Meaningful claim remains unaccounted for',coverage['claim_id']))
-    issues.extend(coverage_issues(documents,claims,review))
+    issues.extend(coverage_issues(documents,claims,review,entities,sources))
     return issues
 
 
-def coverage_issues(documents,claims,review):
+def coverage_issues(documents,claims,review,entities=(),sources=()):
     """Bind audit dispositions to actual source/selected spans; do not infer meaning."""
     issues=[]
+    references=reference_index(entities,sources,review.get('entity_refs',[]))
     by_id={claim['id']:claim for claim in claims}
     resume=next((d['text'] for d in documents if d['slot']=='resume'),None)
     external='\n'.join(d['text'] for d in documents if d['slot'] in ('resume','message','answers'))
@@ -95,8 +93,8 @@ def coverage_issues(documents,claims,review):
             issues.append(issue('COVERAGE_SPAN_MISSING','Included/condensed achievement must be a used claim bound to actual applicable resume wording',entry['claim_id']))
             continue
         rendered=' '.join(actual)
-        original_numbers=set(number_tokens(claim['assertion']))
-        present_numbers=set(number_tokens(rendered))
+        original_numbers={entry['text'] for entry in occurrences(claim['assertion'],references) if entry['role']=='quantity'}
+        present_numbers={entry['text'] for entry in occurrences(rendered,references) if entry['role']=='quantity'}
         for number in original_numbers-present_numbers:
             issues.append(issue('METRIC_MISSING','Original numerical span is absent from the selected claim wording: '+number,claim['id']))
         original=claim['assertion'].casefold();actual_text=rendered.casefold()
@@ -118,10 +116,3 @@ def answer_scope_matches(scope,track_ids,case=None):
         expected=(case['id'] if key=='case_id' else case.get(key)) if case else None
         if scope.get(key) and scope[key]!=expected:return False
     return scope.get('purpose','application') in ('application','external')
-
-
-def number_tokens(value):
-    """Retain signed decimal spans next to non-Latin words; never discard decimal heads."""
-    # These exact product/business labels are identifiers, not numerical achievements.
-    value = re.sub(r'(?<!\w)(?:n8n|b2b)(?!\w)', ' ', value, flags=re.IGNORECASE)
-    return re.findall(r'(?<!\d)[+\-−]?\d+(?:[.,]\d+)*',value)
