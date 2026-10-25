@@ -27,6 +27,11 @@ import {
   useEditorMode,
   type Dirty,
 } from "./editing";
+import { Interview } from "./Interview";
+import { VersionBrowser } from "./VersionBrowser";
+import { EvidenceBank } from "./EvidenceBank";
+import { SourceEvidence } from "./SourceEvidence";
+import { packetLabel } from "./PacketLabel";
 import { AgentPrompt } from "./AgentPrompt";
 export function Detail({
   detail,
@@ -34,14 +39,18 @@ export function Detail({
   onDirty,
   refresh,
   onPacket,
+  onVersion = () => {},
   materialLanguage,
+  selectedPacketId,
 }: {
   detail: CaseDetail;
   api: Api;
   onDirty: Dirty;
   refresh: (revision: number) => void;
   onPacket: (id: string) => void;
+  onVersion?: (packetId: string, versionId: string | null) => void;
   materialLanguage?: string;
+  selectedPacketId?: string | null;
 }) {
   const heading = useRef<HTMLHeadingElement>(null);
   // The lazy view owns its first mounted focus; revision refreshes preserve edit focus.
@@ -55,6 +64,13 @@ export function Detail({
       instruction?: string;
     }>();
   const selection = detail.selection;
+  const viewedPacket = detail.packets.find(
+    (item) =>
+      item.id ===
+      (selectedPacketId ??
+        selection?.packet_id ??
+        detail.case.selected_packet_id),
+  );
   const preferredIntent: AgentIntent =
     detail.case.column === "qualify"
       ? "agent.research"
@@ -69,7 +85,10 @@ export function Detail({
       action.intent.startsWith("agent."),
     );
   const openAgent = (intent: AgentIntent, instruction?: string) =>
-    setHandoff({ intent, instruction });
+    setHandoff({
+      intent: selection?.is_selected === false ? "agent.review" : intent,
+      instruction,
+    });
   return (
     <>
       <div className="page-heading detail-heading">
@@ -101,12 +120,17 @@ export function Detail({
               )
             }
           >
-            {t(`primary.${detail.case.column}`)}
+            {t(
+              selection?.is_selected === false
+                ? "agent.review"
+                : `primary.${detail.case.column}`,
+            )}
           </Button>
         )}
       </div>
       <div className="case-context">
         <span>
+          {t("case.primaryRoute")} ·{" "}
           <strong>
             {detail.case.contact?.name ?? t("cases.contactMissing")}
           </strong>{" "}
@@ -143,6 +167,25 @@ export function Detail({
             )}
           </p>
         )}
+      {detail.role && (
+        <p className="professional-route">
+          {detail.role.url && safeLink(detail.role.url) && (
+            <Link
+              href={safeLink(detail.role.url)}
+              target="_blank"
+              rel="noopener noreferrer"
+              referrerPolicy="no-referrer"
+            >
+              {t("case.roleLink")}
+            </Link>
+          )}{" "}
+          {detail.role.reference && (
+            <span>
+              {t("case.reference", { reference: detail.role.reference })}
+            </span>
+          )}
+        </p>
+      )}
       <div className="detail-layout">
         <section className="editor-pane">
           <div className="packet-heading">
@@ -151,6 +194,37 @@ export function Detail({
               <p>{selection ? t("detail.editHint") : t("detail.noPacket")}</p>
             </div>
           </div>
+          {detail.packets.length > 0 && (
+            <div className="packet-navigation">
+              <Choice
+                label={t("packet.choose")}
+                value={viewedPacket?.id ?? ""}
+                onChange={onPacket}
+                options={detail.packets.map((packet) => ({
+                  id: packet.id,
+                  name: packetLabel(packet),
+                }))}
+              />
+              <p className="help">{t("packet.viewOnly")}</p>
+              <p className="help">{t("packet.caseStage")}</p>
+              {selection?.reported_sent === false && (
+                <p>{t("packet.noSentPin")}</p>
+              )}
+              {viewedPacket && <p role="status">{packetLabel(viewedPacket)}</p>}
+            </div>
+          )}
+          {selection && (
+            <VersionBrowser
+              api={api}
+              selection={selection}
+              workspaceId={detail.workspace_id}
+              revision={detail.revision}
+              onSelect={onVersion}
+            />
+          )}
+          {selection?.is_selected === false && (
+            <Notice>{t("version.historical")}</Notice>
+          )}
           {selection && (
             <div className="assessment">
               <span className="material-status">
@@ -170,6 +244,7 @@ export function Detail({
               <Tab id="materials">{t("detail.materials")}</Tab>
               <Tab id="interview">{t("detail.preparation")}</Tab>
               <Tab id="history">{t("detail.history")}</Tab>
+              <Tab id="context">{t("case.savedContext")}</Tab>
             </TabList>
             <TabPanel id="materials" shouldForceMount>
               <Materials
@@ -185,7 +260,11 @@ export function Detail({
               />
             </TabPanel>
             <TabPanel id="interview" shouldForceMount>
-              <Interview detail={detail} materialLanguage={materialLanguage} />
+              <Interview
+                detail={detail}
+                materialLanguage={materialLanguage}
+                onMaterials={() => setTab("materials")}
+              />
               <Button
                 onPress={() =>
                   openAgent("agent.prepare", t("detail.prepEmptyHint"))
@@ -195,7 +274,7 @@ export function Detail({
               </Button>
             </TabPanel>
             <TabPanel id="history" shouldForceMount>
-              <History detail={detail} />
+              <History detail={detail} api={api} onVersion={onVersion} />
               <Button
                 onPress={() =>
                   openAgent("agent.review", t("agent.reconcileInstruction"))
@@ -203,6 +282,15 @@ export function Detail({
               >
                 {t("agent.reconcile")}
               </Button>
+            </TabPanel>
+            <TabPanel id="context">
+              <EvidenceBank
+                api={api}
+                workspaceId={detail.workspace_id}
+                revision={detail.revision}
+                caseId={detail.case.id}
+                onAgent={() => openAgent("agent.review")}
+              />
             </TabPanel>
           </Tabs>
         </section>
@@ -283,6 +371,10 @@ export function Detail({
           workspaceId={detail.workspace_id}
           revision={detail.revision}
           caseId={detail.case.id}
+          packetId={viewedPacket?.id}
+          versionId={
+            selection?.is_selected === false ? selection.version_id : undefined
+          }
           scopeLabel={`${detail.case.company} · ${detail.case.title}`}
           tracks={detail.case.tracks}
           intent={handoff.intent}
@@ -328,14 +420,19 @@ function Materials({
         : (Object.keys(initial)[0] ?? ""),
   );
   const { editing, setEditing, editTrigger, cancelEditing } = useEditorMode();
-  const names = Object.keys(initial),
+  const names = (selection?.slots ?? []).map((slot) => slot.name),
     current = names.includes(active) ? active : names[0],
     slot = selection?.slots.find((item) => item.name === current);
   useEffect(() => {
     if (draft.receipt && !draft.dirty && !draft.pending) setEditing(false);
   }, [draft.receipt, draft.dirty, draft.pending]);
   const save = () => {
-    if (!selection) return;
+    if (
+      !selection ||
+      selection.is_selected === false ||
+      selection.slots.some((slot) => slot.text === null)
+    )
+      return;
     void draft
       .save((value, revision) =>
         api.command(
@@ -367,6 +464,9 @@ function Materials({
     );
   return (
     <div className="material-content" id="material-editor" tabIndex={-1}>
+      {selection.slots.some((slot) => slot.text === null) && (
+        <p className="help">{t("detail.fileEditHint")}</p>
+      )}
       <div className="material-toolbar">
         <Choice
           label={t("detail.document")}
@@ -379,20 +479,29 @@ function Materials({
               : t(`slot.${name}`),
           }))}
         />
-        {!editing && names.length > 0 && (
-          <Button
-            ref={editTrigger}
-            size="small"
-            onPress={() => {
-              setEditing(true);
-              requestAnimationFrame(() =>
-                document.getElementById("document-draft")?.focus(),
-              );
-            }}
-          >
-            {t("detail.edit")}
-          </Button>
-        )}
+        {!editing &&
+          names.length > 0 &&
+          selection.is_selected !== false &&
+          !selection.slots.some((slot) => slot.text === null) &&
+          !(
+            current === "interview" &&
+            selection.interview?.some(
+              (item) => item.kind && !["document", "file"].includes(item.kind),
+            )
+          ) && (
+            <Button
+              ref={editTrigger}
+              size="small"
+              onPress={() => {
+                setEditing(true);
+                requestAnimationFrame(() =>
+                  document.getElementById("document-draft")?.focus(),
+                );
+              }}
+            >
+              {t("detail.edit")}
+            </Button>
+          )}
         <Button
           size="small"
           isDisabled={draft.dirty || draft.pending}
@@ -433,12 +542,29 @@ function Materials({
       ) : (
         <article className="document-preview" aria-label={t("detail.reading")}>
           <p className="document-title">
-            {t(`slot.${current}`)}
+            {current ? t(`slot.${current}`) : t("detail.noSavedDocuments")}
             {["dossier", "interview", "notes"].includes(current)
               ? " · " + t("common.private")
               : ""}
           </p>
-          <pre lang={materialLanguage}>{initial[current] ?? ""}</pre>
+          {current === "interview" &&
+          selection.interview?.some(
+            (item) => item.kind && !["document", "file"].includes(item.kind),
+          ) ? (
+            <Interview
+              detail={{ interview: selection.interview }}
+              materialLanguage={materialLanguage}
+              onMaterials={() =>
+                document.querySelector(".downloads")?.scrollIntoView()
+              }
+            />
+          ) : slot?.text === null ? (
+            <p>{t("detail.fileOnly")}</p>
+          ) : names.length === 0 ? (
+            <p>{t("detail.noSavedDocuments")}</p>
+          ) : (
+            <pre lang={materialLanguage}>{initial[current] ?? ""}</pre>
+          )}
         </article>
       )}
       {(selection.assessment.issues.length > 0 ||
@@ -452,6 +578,17 @@ function Materials({
               <li key={index}>{text}</li>
             ))}
           </ul>
+        </Disclosure>
+      )}
+      {selection.review && (
+        <Disclosure title={t("review.findings")}>
+          <h3>{t("review.findings")}</h3>
+          <p>{String(selection.review.findings ?? "")}</p>
+          {Boolean(selection.review.tone_findings) && (
+            <p>{String(selection.review.tone_findings)}</p>
+          )}
+          <h3>{t("review.limitations")}</h3>
+          <p>{String(selection.review.limitations ?? "")}</p>
         </Disclosure>
       )}
       <Disclosure className="document-record" title={t("detail.version")}>
@@ -535,84 +672,82 @@ function PrivateNotes({
     </section>
   );
 }
-function Interview({
+function History({
   detail,
-  materialLanguage,
+  api,
+  onVersion,
 }: {
   detail: CaseDetail;
-  materialLanguage?: string;
+  api: Api;
+  onVersion: (packetId: string, versionId: string | null) => void;
 }) {
-  return (
-    <div className="interview">
-      <p className="help">{t("detail.prepHint")}</p>
-      {detail.interview.length === 0 ? (
-        <div className="empty-state">
-          <h3>{t("detail.prepEmpty")}</h3>
-          <p>{t("detail.prepEmptyHint")}</p>
-        </div>
-      ) : (
-        <ol className="dialogue">
-          {detail.interview.map((item, index) => (
-            <li
-              key={`${item.artifact_id}-${index}`}
-              className={index % 2 ? "answer" : "prompt"}
-            >
-              <span className="bubble-label">
-                {t(`slot.${item.slot}`)} · {t("detail.savedPrep")}
-              </span>
-              <p lang={materialLanguage}>{item.text}</p>
-            </li>
-          ))}
-        </ol>
-      )}
-    </div>
-  );
-}
-function History({ detail }: { detail: CaseDetail }) {
+  const [extra, setExtra] = useState<CaseDetail["history"]>([]),
+    [cursor, setCursor] = useState(detail.history_next_cursor),
+    [failure, setFailure] = useState("");
+  useEffect(() => {
+    setExtra([]);
+    setCursor(detail.history_next_cursor);
+    setFailure("");
+  }, [detail.case.id, detail.revision]);
+  async function more() {
+    try {
+      const result = await api.request<{
+        workspace_id: string;
+        revision: number;
+        items: CaseDetail["history"];
+        next_cursor: string | null;
+      }>(
+        `/api/v1/cases/${encodeURIComponent(detail.case.id)}/history?` +
+          new URLSearchParams({ limit: "50", cursor: cursor! }),
+      );
+      if (
+        result.workspace_id !== detail.workspace_id ||
+        result.revision !== detail.revision
+      )
+        throw new Error("Snapshot changed");
+      setExtra([...extra, ...result.items]);
+      setCursor(result.next_cursor);
+    } catch (error) {
+      setFailure(errorText(error as Error));
+    }
+  }
+
   return (
     <div className="history">
       <h3>{t("detail.activity")}</h3>
       {detail.history.length === 0 && <p>{t("detail.activityEmpty")}</p>}
       <ol>
-        {detail.history.map((item) => (
+        {[...detail.history, ...extra].map((item) => (
           <li key={item.id}>
             <strong>{t(`activity.${item.kind}`)}</strong>{" "}
             <time dateTime={item.occurred_at}>{date(item.occurred_at)}</time>
             <p>{item.evidence}</p>
-            {item.version_id && (
-              <small>
-                {t("detail.materialVersion", { version: item.version_id })}
-              </small>
-            )}
+            {item.version_id && item.packet_id ? (
+              <Button
+                onPress={() => onVersion(item.packet_id!, item.version_id)}
+              >
+                {t("version.openSent")}
+              </Button>
+            ) : item.kind === "sent" ? (
+              <p>{t("version.unknownPin")}</p>
+            ) : null}
           </li>
         ))}
       </ol>
+      {cursor && (
+        <Button onPress={() => void more()}>{t("history.more")}</Button>
+      )}
+      {failure && <Notice error>{failure}</Notice>}
       <h3>{t("detail.sources")}</h3>
       {detail.sources.map((source) => (
-        <section key={source.id}>
-          <strong>{source.id}</strong>
-          <p>
-            {safeLink(source.locator) ? (
-              <Link
-                href={safeLink(source.locator)}
-                target="_blank"
-                rel="noopener noreferrer"
-                referrerPolicy="no-referrer"
-              >
-                {source.locator}
-              </Link>
-            ) : (
-              source.locator
-            )}
-          </p>
-          <blockquote>{source.excerpt}</blockquote>
-          <small>
-            {date(source.observed_at)} ·{" "}
-            {source.readable
-              ? t("detail.sourceReadable")
-              : t("detail.sourceUnknown")}
-          </small>
-        </section>
+        <SourceEvidence
+          key={source.id}
+          api={api}
+          sourceId={source.id}
+          source={source}
+          workspaceId={detail.workspace_id}
+          revision={detail.revision}
+        />
       ))}
     </div>
   );

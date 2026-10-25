@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.1
+
+- Bound automatic SQLite recovery checkpoints to the latest ten plus one for each of seven UTC dates. Keep manual, portable, migration and older unmanaged archives outside automatic rotation.
+- Validate and atomically publish checkpoints; verify completion metadata/content before retry; reserve disk headroom before staging and committing, and distinguish storage exhaustion from corruption.
+- Expose all saved case/contact packets, exact historical versions, retained observations, profile evidence and scoped private context through bounded UI navigation. Keep primary selections and canonical sending history unchanged while browsing.
+- Render explicitly saved interview question/answer turns and safe source/term links; keep legacy text and missing preparation honest. Whitelist track-editor commands and show export revision/freshness with manifest-bound downloads.
+- Treat exact n8n/B2B identifiers as names rather than achievement numbers while preserving signed, decimal, percent and unsupported-number checks.
+
 ## 1.0.0
 
 - Install a versioned, verified offline runtime, bundled Python, prebuilt React Aria interface and skill into the chosen private workspace; app operations use only that installed copy.

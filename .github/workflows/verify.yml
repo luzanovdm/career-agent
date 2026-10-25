@@ -25,9 +25,9 @@ jobs:
           import hashlib, json
           from pathlib import Path
           root = Path('.')
-          raw = (root / 'releases/1.0.0/RELEASE.json').read_bytes()
-          manifest = json.loads(raw)
           index = json.loads((root / 'release.json').read_text())
+          raw = (root / 'releases' / index['version'] / 'RELEASE.json').read_bytes()
+          manifest = json.loads(raw)
           assert hashlib.sha256(raw).hexdigest() == index['artifacts'][0]['manifest_sha256']
           checked = 0
           for name, record in manifest['files'].items():

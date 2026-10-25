@@ -59,7 +59,7 @@ class RuntimeTests(unittest.TestCase):
         with self.assertRaises(CareerError):self.fx.tasks.command(dict(value,request_id='another'))
         self.assertEqual(1,self.fx.tasks.context()['revision'])
         self.assertEqual(1,len(self.fx.tasks.query('changes',after=0)['changes']))
-        self.assertEqual(1,len(list((self.fx.root/'Backups').glob('*.sqlite3'))))
+        self.assertEqual(1,len(list((self.fx.root/'Backups/Automatic').glob('*.sqlite3'))))
 
     def test_unknown_affiliation_changes_counts_and_current_selection(self):
         self.fx.seed()

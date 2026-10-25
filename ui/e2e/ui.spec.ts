@@ -47,7 +47,30 @@ async function mock(
       });
     if (url.pathname === "/api/v1/context")
       return route.fulfill({
-        json: { ...context, preferences: { theme, ui_locale: locale } },
+        json: {
+          ...context,
+          ...(url.searchParams.has("task")
+            ? {
+                evidence: { claims: [], answers: [], sources: [] },
+                pagination: Object.fromEntries(
+                  ["claims", "answers", "sources", "tracks"].map((key) => [
+                    key,
+                    {
+                      total: 0,
+                      returned: 0,
+                      remaining: 0,
+                      offset: 0,
+                      available: 0,
+                      omitted_by_scope: 0,
+                    },
+                  ]),
+                ),
+                partial: false,
+                next_cursor: null,
+              }
+            : {}),
+          preferences: { theme, ui_locale: locale },
+        },
       });
     if (url.pathname === "/api/v1/board")
       return route.fulfill({ json: board() });
@@ -57,6 +80,17 @@ async function mock(
       });
     if (url.pathname === `/api/v1/cases/${detail.case.id}`)
       return route.fulfill({ json: detail });
+    if (url.pathname === "/api/v1/history/observations")
+      return route.fulfill({
+        json: {
+          ...context,
+          items: [],
+          total: 0,
+          next_cursor: null,
+          pending_projection: 0,
+          projection_current: true,
+        },
+      });
     if (url.pathname === "/api/v1/contacts")
       return route.fulfill({ json: contacts });
     if (url.pathname === "/api/v1/changes")
@@ -83,8 +117,14 @@ async function mock(
         descriptor = {
           ...handoff.descriptor,
           intent,
+          ...(url.searchParams.has("packet_id")
+            ? { selection_mode: "packet" }
+            : {}),
           scope: {
             ...handoff.descriptor.scope,
+            ...(url.searchParams.has("packet_id")
+              ? { packet_ids: [url.searchParams.get("packet_id")!] }
+              : {}),
             ...(url.searchParams.has("track_id")
               ? { track_ids: [url.searchParams.get("track_id")!] }
               : {}),

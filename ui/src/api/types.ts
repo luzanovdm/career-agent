@@ -1,6 +1,8 @@
 /** Checked against docs/api/1.0.0.md; business state is always a server projection. */
 export type Theme = "system" | "light" | "dark";
 export interface Issue {
+  required_bytes?: number;
+  free_bytes?: number;
   code: string;
   message: string;
   record_id?: string;
@@ -27,6 +29,8 @@ export const columnLabels: Record<Column, string> = {
   closed: "Closed",
 };
 export interface Track {
+  version?: number;
+  claim_ids?: string[];
   id: string;
   name: string;
   positioning: string;
@@ -45,6 +49,14 @@ export interface Context extends Snapshot {
   };
   counts: { cases: number; contacts: number };
   next_missing_input: unknown[];
+  exports?: {
+    generated_at?: string | null;
+    files?: { name: string; download_url: string }[];
+    issue?: string;
+    kind: "csv" | "xlsx" | "profile" | "snapshot";
+    revision: number | null;
+    status: "missing" | "current" | "stale";
+  }[];
 }
 export interface Action {
   intent: string;
@@ -124,7 +136,45 @@ export interface Slot {
   text: string | null;
   download_url: string;
 }
+export interface InterviewItem {
+  slot: string;
+  artifact_id: string;
+  kind?: "question" | "answer" | "note" | "document" | "file";
+  text: string | null;
+  status?: "outline" | "confirmed" | "unknown" | "hypothesis" | null;
+  sources?: {
+    id: string;
+    locator: string;
+    observed_at: string;
+    readable: boolean;
+    available: boolean;
+  }[];
+  terms?: {
+    label: string;
+    url: string;
+    source_id: string;
+    available: boolean;
+    limitation: string | null;
+  }[];
+}
+export interface VersionSummary {
+  id: string;
+  packet_id: string;
+  ordinal: number;
+  created_at: string;
+  is_selected: boolean;
+}
+export interface VersionPage extends Snapshot {
+  items: VersionSummary[];
+  total: number;
+  next_cursor: string | null;
+}
 export interface Selection {
+  reported_sent?: boolean | null;
+  is_selected?: boolean;
+  created_at?: string;
+  ordinal?: number;
+  interview?: InterviewItem[];
   used_claim_ids?: string[];
   answer_ids?: string[];
   packet_id: string;
@@ -140,18 +190,39 @@ export interface Selection {
     issues: Issue[];
     unknowns: string[];
   };
-  review: { id: string; findings: unknown; limitations: unknown } | null;
+  review: {
+    id: string;
+    findings: unknown;
+    limitations: unknown;
+    tone_findings?: unknown;
+  } | null;
   version: number;
 }
+export interface PacketSummary {
+  id: string;
+  purpose: string;
+  person_id: string | null;
+  person_name?: string | null;
+  selected_version_id: string | null;
+  case_id?: string;
+  case_title?: string;
+  company?: string;
+  is_primary?: boolean;
+}
+export interface PacketPage extends Snapshot {
+  items: PacketSummary[];
+  total: number;
+  next_cursor: string | null;
+}
 export interface CaseDetail extends Snapshot {
+  viewed_packet_id?: string;
+  viewed_version_id?: string | null;
+  role?: { url: string | null; reference: string | null } | null;
+  history_total?: number;
+  history_next_cursor?: string | null;
   case: CaseSummary;
   notes: string;
-  packets: {
-    id: string;
-    purpose: string;
-    person_id: string | null;
-    selected_version_id: string | null;
-  }[];
+  packets: PacketSummary[];
   selection: Selection | null;
   history: {
     id: string;
@@ -159,8 +230,10 @@ export interface CaseDetail extends Snapshot {
     occurred_at: string;
     evidence: string;
     version_id: string | null;
+    packet_id?: string | null;
+    payload_unknown?: boolean;
   }[];
-  interview: { slot: string; text: string; artifact_id: string }[];
+  interview: InterviewItem[];
   sources: {
     id: string;
     locator: string;
@@ -192,7 +265,7 @@ export interface CommandInputs {
   >;
   "preferences.set": { theme?: Theme; ui_locale?: string };
   "profile.update": { display_name: string; conversation_language: string };
-  "track.save": Omit<Track, "id"> & { id?: string };
+  "track.save": Omit<Track, "id" | "version"> & { id?: string };
   "case.note": { case_id: string; text: string };
   "case.close": { case_id: string; reason: string; evidence: string };
   "case.reopen": { case_id: string; reason: string };
@@ -259,6 +332,7 @@ export interface AgentHandoff extends Snapshot {
       track_ids: string[];
     };
     status: "not_executed";
+    selection_mode?: "packet" | "version";
   };
   prompt: string;
   executed: false;

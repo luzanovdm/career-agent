@@ -122,4 +122,6 @@ def answer_scope_matches(scope,track_ids,case=None):
 
 def number_tokens(value):
     """Retain signed decimal spans next to non-Latin words; never discard decimal heads."""
+    # These exact product/business labels are identifiers, not numerical achievements.
+    value = re.sub(r'(?<!\w)(?:n8n|b2b)(?!\w)', ' ', value, flags=re.IGNORECASE)
     return re.findall(r'(?<!\d)[+\-−]?\d+(?:[.,]\d+)*',value)

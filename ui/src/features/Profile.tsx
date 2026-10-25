@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { RetainedHistory } from "./RetainedHistory";
+import { EvidenceBank } from "./EvidenceBank";
 import type { Api } from "../api/client";
 import type { Context, Track } from "../api/types";
 import { t } from "../app/i18n";
@@ -210,6 +212,17 @@ export function Profile({
           )}
         </section>
       </div>
+      <EvidenceBank
+        api={api}
+        workspaceId={context.workspace_id}
+        revision={context.revision}
+        onAgent={onAgent}
+      />
+      <RetainedHistory
+        api={api}
+        workspaceId={context.workspace_id}
+        revision={context.revision}
+      />
     </>
   );
 }
@@ -306,7 +319,17 @@ function TrackEditor({
                 .save((value, revision) =>
                   api.command(
                     "track.save",
-                    { ...value, ...(!track.id ? { id: undefined } : {}) },
+                    {
+                      id: track.id || undefined,
+                      name: value.name,
+                      positioning: value.positioning,
+                      selected: value.selected,
+                      language: value.language,
+                      policies: value.policies,
+                      ...(value.claim_ids !== undefined
+                        ? { claim_ids: value.claim_ids }
+                        : {}),
+                    },
                     revision,
                   ),
                 )
