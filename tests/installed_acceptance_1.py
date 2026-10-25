@@ -239,7 +239,7 @@ print(json.dumps(dict(status='passed',revision=revision)))
             checks.append('Installed bounded checkpoint retention, verified restore, typed low-disk refusal without mutation, and identifier-number distinction')
             command('company.capture',id='company_numeric',name='Icons8',domain='icons.example')
             command('source.capture',id='source_numeric',locator='https://tools.example/reference',excerpt='Fictional reference: Icons8 uses named D3, n8n and B2B concepts.',observed_at='2026-10-25T00:00:00Z',readable=True)
-            command('case.capture',id='case_numeric',company_id='company_numeric',title='Fictional tooling need',kind='need',route='unknown',tracks=[dict(id='track_installed',rationale='Synthetic numeric reference check')],source_ids=['source_numeric'],essential_policy='passed')
+            command('case.capture',id='case_numeric',company_id='company_numeric',title='Fictional tooling need',kind='speculative',route='unknown',tracks=[dict(id='track_installed',rationale='Synthetic numeric reference check')],source_ids=['source_numeric'],essential_policy='passed')
             command('packet.create',id='packet_numeric',case_id='case_numeric',purpose='contact')
             numeric_review=dict(findings='Compared exact canonical name and scoped source identifiers.',limitations='Does not certify semantic truth.',tone_findings='Concrete.',claim_spans=[],coverage=[],entity_refs=[dict(text=value,source_id='source_numeric') for value in ('D3','n8n','B2B')])
             good,_=command('packet.save',packet_id='packet_numeric',documents=[dict(slot='message',text='Icons8: D3 n8n B2B.')],used_claim_ids=[],review=numeric_review);assert good['outcome']=='satisfied'
