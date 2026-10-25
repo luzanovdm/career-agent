@@ -202,6 +202,41 @@ def run(archive,expected,output):
             selected,_=cli('deliver','packet_taylor',allowed=(0,3));assert selected['assessment']['prepared'] and selected['assessment']['conditional'] and selected['assessment']['unknown_details']
             assessed,_=cli('query','assess','--id','packet_child',allowed=(0,3));assert assessed['qualified']==0 and assessed['prepared']==1 and not assessed['task_complete']
             checks.append('Installed selected-recipient projections and useful conditional draft without unconditional qualification')
+            # The actual installed runtime owns the retention files; no source/global helper is loaded.
+            automatic=workspace/'Backups/Automatic'
+            checkpoints=list(automatic.glob('r*.sqlite3'));assert 1<=len(checkpoints)<=17
+            metadata=[json.loads(path.with_suffix('.json').read_text()) for path in checkpoints]
+            assert max(item['revision'] for item in metadata)==revision-1
+            for path in checkpoints:
+                record=json.loads(path.with_suffix('.json').read_text())
+                assert hashlib.sha256(path.read_bytes()).hexdigest()==record['sha256']
+            latest=max(checkpoints,key=lambda path:json.loads(path.with_suffix('.json').read_text())['revision'])
+            probe_code="""import sys,json,sqlite3,shutil
+from unittest.mock import patch
+sys.path.insert(0,sys.argv[1])
+from career.facade import Tasks
+from career.contracts import CareerError
+from career.policy import number_tokens
+tasks=Tasks(sys.argv[2]);revision=tasks.context()['revision']
+with patch('career.repository.shutil.disk_usage',return_value=shutil._ntuple_diskusage(100,99,1)):
+ try:tasks.command(dict(request_id='installed_low_disk_probe',expected_revision=revision,intent='preferences.set',input=dict(theme='dark')))
+ except CareerError as error:assert error.code=='DISK_SPACE_LOW' and error.status==507
+ else:raise AssertionError('Low disk was not rejected')
+assert tasks.context()['revision']==revision
+assert number_tokens('n8n B2B 25%')==['25']
+source=sqlite3.connect('file:'+sys.argv[3]+'?mode=ro&immutable=1',uri=True);restored=sqlite3.connect(':memory:')
+source.backup(restored)
+assert restored.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
+assert not list(restored.execute('PRAGMA foreign_key_check'))
+assert restored.execute('SELECT revision FROM workspace').fetchone()[0]==revision-1
+restored.close();source.close()
+print(json.dumps(dict(status='passed',revision=revision)))
+"""
+            before_hash=hashlib.sha256((workspace/'Data/career.sqlite3').read_bytes()).hexdigest()
+            probe=subprocess.run([str(release/manifest['python_executable']),'-I','-B','-c',probe_code,str(release/'runtime'),str(workspace),str(latest)],env=environment,cwd=parent,capture_output=True,text=True,timeout=20)
+            assert probe.returncode==0,probe.stdout+probe.stderr
+            assert hashlib.sha256((workspace/'Data/career.sqlite3').read_bytes()).hexdigest()==before_hash
+            checks.append('Installed bounded checkpoint retention, verified restore, typed low-disk refusal without mutation, and identifier-number distinction')
             failed_archive=parent/'fictional-failed-update.zip';failed_sha,failed_id=update_fixture(archive,failed_archive,fail_context=True)
             before_pointer=json.loads((workspace/'.career-agent/active.json').read_text())
             failed=subprocess.run([str(launcher),'app','update','--archive',str(failed_archive),'--sha256',failed_sha],capture_output=True,text=True,env=environment,cwd=parent,timeout=60)
@@ -213,7 +248,7 @@ def run(archive,expected,output):
             pending=dict(request_id='pending_before_update',expected_revision=revision,intent='case.note',input=dict(case_id='case_installed',text='Pending bounded plan before code update.'))
             planned,_=cli('plan',input=pending)
             db_hash=hashlib.sha256((workspace/'Data/career.sqlite3').read_bytes()).hexdigest()
-            next_archive=parent/'fictional-compatible-update.zip';next_sha,next_id=update_fixture(archive,next_archive,version='1.0.1')
+            next_archive=parent/'fictional-compatible-update.zip';next_sha,next_id=update_fixture(archive,next_archive,version='1.0.2')
             updated=subprocess.run([str(launcher),'app','update','--archive',str(next_archive),'--sha256',next_sha],capture_output=True,text=True,env=environment,cwd=parent,timeout=60)
             assert updated.returncode==0,updated.stdout+updated.stderr
             assert cli('app','status')[0]['release_id']==next_id

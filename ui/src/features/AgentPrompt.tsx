@@ -14,6 +14,8 @@ export function AgentPrompt({
   api,
   intent: initialIntent,
   caseId,
+  packetId,
+  versionId,
   workspaceId,
   revision,
   instruction = "",
@@ -25,6 +27,8 @@ export function AgentPrompt({
   api: Api;
   intent: AgentIntent;
   caseId?: string;
+  packetId?: string;
+  versionId?: string;
   workspaceId: string;
   revision: number;
   instruction?: string;
@@ -49,7 +53,14 @@ export function AgentPrompt({
     setCopy("idle");
     setHandoff(undefined);
     void api
-      .agentIntent(intent, caseId, controller.signal, trackId)
+      .agentIntent(
+        intent,
+        caseId,
+        controller.signal,
+        trackId,
+        packetId,
+        versionId,
+      )
       .then((result) => {
         if (request !== generation.current || controller.signal.aborted) return;
         if (
@@ -62,6 +73,14 @@ export function AgentPrompt({
           (trackId &&
             (result.descriptor.scope.track_ids.length !== 1 ||
               result.descriptor.scope.track_ids[0] !== trackId)) ||
+          (packetId &&
+            (result.descriptor.selection_mode !==
+              (versionId ? "version" : "packet") ||
+              result.descriptor.scope.packet_ids.length !== 1 ||
+              result.descriptor.scope.packet_ids[0] !== packetId)) ||
+          (versionId &&
+            (result.descriptor.scope.version_ids.length !== 1 ||
+              result.descriptor.scope.version_ids[0] !== versionId)) ||
           (caseId && !result.descriptor.scope.case_ids.includes(caseId))
         )
           throw new Error("Invalid handoff");
@@ -79,7 +98,17 @@ export function AgentPrompt({
         if (!controller.signal.aborted) setError(errorText(error));
       });
     return () => controller.abort();
-  }, [api, intent, caseId, workspaceId, refresh, instruction, trackId]);
+  }, [
+    api,
+    intent,
+    caseId,
+    workspaceId,
+    refresh,
+    instruction,
+    trackId,
+    packetId,
+    versionId,
+  ]);
   const stale = handoff && handoff.revision !== revision;
   const selectText = () => {
     const input = document.getElementById(

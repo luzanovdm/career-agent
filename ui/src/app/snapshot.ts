@@ -39,6 +39,7 @@ export function useSnapshot(
   filters: Filters,
   selected: string | null,
   selectedPacket: string | null,
+  selectedVersion: string | null = null,
 ) {
   const [data, setData] = useState<ViewSnapshot>(),
     [error, setError] = useState<Error>(),
@@ -76,6 +77,7 @@ export function useSnapshot(
           change.ids.includes(
             current.detail.value.selection?.packet_id ?? "",
           ) ||
+          change.kinds.includes("packet") ||
           change.kinds.some((kind) =>
             [
               "source",
@@ -204,7 +206,12 @@ export function useSnapshot(
                   return page;
                 })()
               : Promise.resolve(undefined);
-          const detailKey = selected + ":" + (selectedPacket ?? "");
+          const detailKey =
+            selected +
+            ":" +
+            (selectedPacket ?? "") +
+            ":" +
+            (selectedVersion ?? "");
           const detailPromise =
             selected && section === "cases"
               ? (async () => {
@@ -213,12 +220,42 @@ export function useSnapshot(
                   const detail = await api.detail(selected, controller.signal);
                   readSnapshots.push(detail);
                   if (selectedPacket) {
+                    const packet = detail.packets.find(
+                      (item) => item.id === selectedPacket,
+                    );
+                    if (!packet)
+                      throw new Error("Packet does not belong to this case.");
+                    if (!packet.selected_version_id)
+                      return {
+                        ...detail,
+                        viewed_packet_id: selectedPacket,
+                        selection: null,
+                        interview: [],
+                      };
                     const selection = await api.selection(
                       selectedPacket,
                       controller.signal,
+                      selectedVersion ?? undefined,
                     );
                     readSnapshots.push(selection);
-                    return { ...detail, selection };
+                    if (selection.case_id !== detail.case.id)
+                      throw new Error("Packet case changed.");
+                    return {
+                      ...detail,
+                      viewed_packet_id: selectedPacket,
+                      selection,
+                      viewed_version_id: selectedVersion,
+                      interview:
+                        selection.interview ??
+                        selection.slots
+                          .filter((slot) => slot.name === "interview")
+                          .map((slot) => ({
+                            slot: slot.name,
+                            text: slot.text,
+                            artifact_id: slot.artifact_id,
+                            kind: "document" as const,
+                          })),
+                    };
                   }
                   return detail;
                 })()
@@ -310,7 +347,18 @@ export function useSnapshot(
         if (request === generation.current) setRefreshing(false);
       });
     return () => controller.abort();
-  }, [api, ready, section, view, key, selected, selectedPacket, tick, desired]);
+  }, [
+    api,
+    ready,
+    section,
+    view,
+    key,
+    selected,
+    selectedPacket,
+    selectedVersion,
+    tick,
+    desired,
+  ]);
   return {
     data,
     error,

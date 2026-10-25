@@ -18,10 +18,21 @@ const noop = () => {};
 function mockApi() {
   const api = new Api();
   vi.spyOn(api, "board").mockResolvedValue(board());
-  vi.spyOn(api, "agentIntent").mockImplementation(async (intent) => ({
-    ...handoff,
-    descriptor: { ...handoff.descriptor, intent },
-  }));
+  vi.spyOn(api, "agentIntent").mockImplementation(
+    async (intent, caseId, signal, track, packet) => ({
+      ...handoff,
+      descriptor: {
+        ...handoff.descriptor,
+        intent,
+        ...(packet
+          ? {
+              selection_mode: "packet" as const,
+              scope: { ...handoff.descriptor.scope, packet_ids: [packet] },
+            }
+          : {}),
+      },
+    }),
+  );
   vi.spyOn(api, "context").mockResolvedValue(structuredClone(context));
   vi.spyOn(api, "cases").mockImplementation(async (params) =>
     page(params.column),

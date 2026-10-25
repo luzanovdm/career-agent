@@ -3,6 +3,8 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 import base64
 import json
+import errno
+import shutil
 import os
 from pathlib import Path
 import re
@@ -171,12 +173,20 @@ class Snapshot:
         else:
             row=self.one('SELECT artifact_id FROM locale_catalogs WHERE locale=?',(locale,))
             if row:
-                _,path=self.object(row['artifact_id']);catalog=validate_catalog(json.loads(path.read_text()),english)
+                _,path=self.object(row['artifact_id']);custom=validate_catalog(json.loads(path.read_text()))
+                # An update may add UI keys. Preserve validated custom strings and use
+                # English for new keys without rewriting the user's immutable catalog.
+                shared={key:value for key,value in custom['messages'].items() if key in english['messages']}
+                if shared:validate_catalog(dict(custom,messages=shared),dict(english,messages={key:english['messages'][key] for key in shared}))
+                fallback={key:value if isinstance(value,str) else {category:value.get(category,value['other']) for category in custom['plural_categories']} for key,value in english['messages'].items()}
+                missing=sorted(set(fallback)-set(shared))
+                catalog=validate_catalog(dict(custom,messages=dict(fallback,**shared)),english)
+                if missing:issues=[dict(code='LOCALE_FALLBACK',message='New interface keys use English until the workspace catalog is updated',missing_keys=missing)]
             else:
                 issues=[dict(code='LOCALE_FALLBACK',message='Requested catalog unavailable; English fallback is active')]
         return self.envelope(locale=locale,fallback_locale='en',catalog=catalog['messages'],plural_categories=catalog['plural_categories'],issues=issues)
 
-    def agent_intent(self,intent,case_id=None,track_id=None):
+    def agent_intent(self,intent,case_id=None,track_id=None,packet_id=None,version_id=None):
         require(intent in ('agent.research','agent.prepare','agent.review'),'INVALID_INTENT','Unknown agent intent')
         cases=[];packets=[];versions=[];tracks=[]
         if case_id:
@@ -187,6 +197,10 @@ class Snapshot:
                 packets=[packet['id']]
                 if packet['selected_version_id']:versions=[packet['selected_version_id']]
         else:tracks=[r['id'] for r in self.rows('SELECT id FROM tracks WHERE selected=1 LIMIT 100')]
+        if packet_id:
+            packet=self.get('packet',packet_id)
+            require(case_id==packet['case_id'],'SCOPE_CONFLICT','Packet does not belong to requested case',409)
+            packets=[packet_id];versions=[packet['selected_version_id']] if packet['selected_version_id'] else []
         if track_id:
             track=self.get('track',track_id)
             require(track['selected'],'SCOPE_NOT_ACTIVE','Requested research track is not selected',409)
@@ -194,6 +208,11 @@ class Snapshot:
             tracks=[track_id]
         descriptor=dict(workspace_id=self.workspace_id,revision=self.revision,intent=intent,
             scope=dict(case_ids=cases,packet_ids=packets,version_ids=versions,track_ids=tracks),status='not_executed')
+        if packet_id:descriptor['selection_mode']='packet'
+        if version_id:
+            require(packet_id and intent=='agent.review','INVALID_INTENT','Historical materials support explicit read/review only')
+            version=self.get('version',version_id);require(version['packet_id']==packet_id,'SCOPE_CONFLICT','Version belongs to another packet',409)
+            descriptor['scope']['version_ids']=[version_id];descriptor['selection_mode']='version'
         descriptor['id']='intent_'+digest(descriptor)[:32]
         prompt='Use the installed Career Agent workspace already associated with workspace ID '+self.workspace_id+'. Resolve this bounded intent with the installed CLI before working: '+canonical(descriptor)+'. '+{
             'agent.research':'Find useful evidenced people/opportunities within the selected tracks. Reuse actual existing scoped research permission; copying this prompt did not grant permission. Ask only if a material scope/start choice is missing.',
@@ -209,7 +228,7 @@ class Snapshot:
         return self.envelope(descriptor=descriptor,prompt=prompt,executed=False,external_actions={'performed':0})
 
     def resolve_intent(self,value):
-        require(isinstance(value,dict) and set(value)=={'id','workspace_id','revision','intent','scope','status'},'INVALID_INTENT','Invalid bounded intent descriptor')
+        require(isinstance(value,dict) and set(value) in ({'id','workspace_id','revision','intent','scope','status'},{'id','workspace_id','revision','intent','scope','status','selection_mode'}),'INVALID_INTENT','Invalid bounded intent descriptor')
         require(value['workspace_id']==self.workspace_id,'WORKSPACE_CONFLICT','Intent belongs to another workspace',409)
         require(value['intent'] in ('agent.research','agent.prepare','agent.review') and value['status']=='not_executed','INVALID_INTENT','Unknown or executed intent')
         original={key:entry for key,entry in value.items() if key!='id'}
@@ -217,6 +236,7 @@ class Snapshot:
         scope=value['scope']
         require(isinstance(scope,dict) and set(scope)=={'case_ids','packet_ids','version_ids','track_ids'},'INVALID_INTENT','Invalid intent scope')
         for key in scope:require(isinstance(scope[key],list) and len(scope[key])<=100,'LIMIT_EXCEEDED','Intent scope exceeds bounds')
+        require(value.get('selection_mode') in (None,'packet','version'),'INVALID_INTENT','Unknown selection binding')
         current_packets=[];current_versions=[]
         for case_id in scope['case_ids']:
             self.get('case',case_id)
@@ -224,6 +244,14 @@ class Snapshot:
             if packet:
                 current_packets.append(packet['id'])
                 if packet['selected_version_id']:current_versions.append(packet['selected_version_id'])
+        if value.get('selection_mode') in ('packet','version'):
+            require(len(scope['case_ids'])==1 and len(scope['packet_ids'])==1,'INVALID_INTENT','One explicit case packet required')
+            packet=self.get('packet',scope['packet_ids'][0])
+            require(packet['case_id']==scope['case_ids'][0],'SCOPE_CONFLICT','Packet case changed',409)
+            current_packets=[packet['id']];current_versions=[packet['selected_version_id']] if packet['selected_version_id'] else []
+            if value.get('selection_mode')=='version':
+                require(value['intent']=='agent.review' and len(scope['version_ids'])==1,'INVALID_INTENT','One historical review version required')
+                version=self.get('version',scope['version_ids'][0]);require(version['packet_id']==packet['id'],'SCOPE_CONFLICT','Version packet changed',409);current_versions=[version['id']]
         require(set(current_packets)==set(scope['packet_ids']) and set(current_versions)==set(scope['version_ids']),
                 'SELECTION_CONFLICT','Selected target/materials changed; inspect the current selection',409)
         for track_id in scope['track_ids']:
@@ -235,7 +263,7 @@ class Snapshot:
         if value['intent']=='agent.research':
             require(research['allowed'] and set(scope['track_ids'])<=set(research['scope'].get('track_ids',[])),
                     'RESEARCH_NOT_AUTHORIZED','Research is paused, revoked, expired or outside current scope',403)
-        return self.envelope(descriptor=value,context=self.context(task='contacts' if value['intent']=='agent.research' else 'packets',case_id=next(iter(scope['case_ids']),None),_track_ids=scope['track_ids']),research=research,context_refreshed=value['revision']!=self.revision,
+        return self.envelope(descriptor=value,viewed_selection=self.selection(scope['packet_ids'][0],version_id=scope['version_ids'][0] if value.get('selection_mode')=='version' else None) if value.get('selection_mode') else None,context=self.context(task='contacts' if value['intent']=='agent.research' else 'packets',case_id=next(iter(scope['case_ids']),None),_track_ids=scope['track_ids']),research=research,context_refreshed=value['revision']!=self.revision,
                              executed=False,external_actions={'performed':0})
 
     def refresh_case_projection(self, case_id):
@@ -307,6 +335,7 @@ class Snapshot:
         research=self.one('SELECT status,scope,expires_at FROM research');research['scope']=json.loads(research['scope'])
         result=self.envelope(profile=profile,tracks=collections['tracks'],preferences=self.preferences(),research=research,
             counts=dict(cases=self.one('SELECT count(*) AS n FROM cases')['n'],contacts=self.one('SELECT count(*) AS n FROM persons')['n'],pending_questions=self.one("SELECT count(*) AS n FROM answers WHERE disposition='pending' AND (valid_from IS NULL OR valid_from<=?) AND (valid_until IS NULL OR valid_until>?)",(now(),now()))['n']),next_missing_input=[])
+        result['exports']=self.exports()
         result['recent_job_search']=self.one("SELECT id,requested_count,json_array_length(selected_ids) AS selected_count FROM batches WHERE task='job_search' ORDER BY rowid DESC LIMIT 1")
         active=contained(self.root,'.career-agent/active.json');installed=active.is_file()
         release=contained(self.root,json.loads(active.read_text())['release_dir']) if installed else None
@@ -402,6 +431,7 @@ class Snapshot:
                 value = json.loads(base64.urlsafe_b64decode(cursor.encode()))
             except (ValueError,UnicodeError):
                 raise CareerError('INVALID_CURSOR','Invalid cursor')
+            require(isinstance(value,dict) and set(value)=={'revision','scope','offset'} and type(value['revision']) is int and isinstance(value['scope'],str) and type(value['offset']) is int and 0<=value['offset']<=10000000,'INVALID_CURSOR','Invalid bounded cursor')
             require(value['revision']==self.revision and value['scope']==digest(scope), 'REVISION_CONFLICT','Page changed; refresh active page',409)
             return value['offset']
         return 0
@@ -434,12 +464,13 @@ class Snapshot:
         for entries in reversed(chain):merged.update((entry['claim_id'],entry) for entry in entries)
         return merged
 
-    def selection(self, packet_id, include_text=True,_contact=None,_eligibility=None,_packet=None,_case=None):
+    def selection(self, packet_id, include_text=True,_contact=None,_eligibility=None,_packet=None,_case=None,version_id=None):
         from .contracts import issue
         packet = _packet if _packet and _packet['id']==packet_id else self.get('packet',packet_id)
-        version_id = packet['selected_version_id']
+        version_id = version_id or packet['selected_version_id']
         require(version_id,'REVIEW_REQUIRED','Packet has no saved selected version')
         version = self.get('version',version_id)
+        require(version['packet_id']==packet_id,'SCOPE_CONFLICT','Version belongs to another packet',409)
         issues = []
         slots = []
         for slot in self.rows('SELECT * FROM slots WHERE version_id=? ORDER BY name',(version_id,)):
@@ -513,9 +544,15 @@ class Snapshot:
         progress=[]
         if include_text:
             progress=[self.assess(row['id'],_projection_only=True) for row in self.rows("SELECT id FROM batches WHERE task='job_search' AND EXISTS(SELECT 1 FROM json_each(selected_ids) i WHERE i.value=?) LIMIT 10",(case['id'],))]
-        return dict(task_progress=progress,delivery=dict(retry_blocked=bool(unresolved),unresolved_activity_ids=[r['id'] for r in unresolved]),packet_id=packet_id,version_id=version_id,case_id=packet['case_id'],person_id=packet['person_id'],
+        from .interview import project_interview_slot
+        reference_versions={row['record_id']:row['record_version'] for row in self.rows("SELECT record_id,record_version FROM dependencies WHERE version_id=? AND kind='source' AND purpose='interview-reference'",(version_id,))} if include_text else {}
+        def saved_dialogue_source(source_id):
+            source=self.get('source',source_id)
+            return source if reference_versions.get(source_id)==source['version'] else dict(source,readable=False)
+        interview=[turn for slot in slots if slot['name']=='interview' for turn in project_interview_slot(slot,saved_dialogue_source)] if include_text else []
+        return dict(reported_sent=bool(self.one("SELECT 1 FROM activities WHERE packet_id=? AND version_id=? AND kind='sent' LIMIT 1",(packet_id,version_id))) if include_text else None,is_selected=version_id==packet['selected_version_id'],created_at=version['created_at'],ordinal=version['ordinal'],interview=interview,task_progress=progress,delivery=dict(retry_blocked=bool(unresolved),unresolved_activity_ids=[r['id'] for r in unresolved]),packet_id=packet_id,version_id=version_id,case_id=packet['case_id'],person_id=packet['person_id'],
                     purpose=packet['purpose'],slots=slots,assessment=dict(saved=not any(entry['code']=='MATERIAL_CHANGED' for entry in issues),prepared=not issues,qualified=qualified,
-                    issues=issues,unknowns=[entry['message'] for entry in eligibility['unknown_details']],unknown_details=eligibility['unknown_details'],conditional=eligibility['conditional'],eligibility=eligibility['status'],limitations=[dict(code='REVIEW_LIMITATION',message=review['limitations'])] if review else []),review=dict(id=review['id'],findings=review['findings'],limitations=review['limitations']) if review else None,
+                    issues=issues,unknowns=[entry['message'] for entry in eligibility['unknown_details']],unknown_details=eligibility['unknown_details'],conditional=eligibility['conditional'],eligibility=eligibility['status'],limitations=[dict(code='REVIEW_LIMITATION',message=review['limitations'])] if review else []),review=dict(id=review['id'],findings=review['findings'],limitations=review['limitations'],tone_findings=json.loads(review['detail']).get('tone_findings')) if review else None,
                     version=packet['version'],used_claim_ids=json.loads(version['used_claim_ids']),answer_ids=json.loads(version['answer_ids']))
 
     def case_summary(self, case):
@@ -588,15 +625,66 @@ class Snapshot:
             columns[column]=dict(items=page['items'],next_cursor=page['next_cursor'])
         return self.envelope(columns=columns,counts=counts,qualified_people=qualified)
 
+    def packet_summaries(self,where,args,limit=None,offset=0):
+        query="""SELECT p.id,p.case_id,p.purpose,p.person_id,p.selected_version_id,
+            person.name AS person_name,c.title AS case_title,company.name AS company,
+            CASE WHEN cs.packet_id=p.id THEN 1 ELSE 0 END AS is_primary
+            FROM packets p JOIN cases c ON c.id=p.case_id
+            JOIN companies company ON company.id=c.company_id
+            LEFT JOIN persons person ON person.id=p.person_id
+            LEFT JOIN case_selections cs ON cs.case_id=p.case_id WHERE """+where+' ORDER BY p.purpose,person.name,p.id'
+        if limit is not None:query+=' LIMIT ? OFFSET ?';args=[*args,limit,offset]
+        return [dict(row,is_primary=bool(row['is_primary'])) for row in self.rows(query,args)]
+
+    def contact_packets(self,record_id,limit=50,cursor=None):
+        self.get('person',record_id)
+        scope=dict(person_id=record_id,collection='packets');offset=self._paging(cursor,limit,scope)
+        total=self.one('SELECT count(*) AS n FROM packets WHERE person_id=?',(record_id,))['n']
+        return self.envelope(items=self.packet_summaries('p.person_id=?',[record_id],limit,offset),total=total,
+            next_cursor=self._cursor(offset+limit,scope) if offset+limit<total else None)
+
+    def packet_versions(self,record_id,limit=50,cursor=None):
+        packet=self.get('packet',record_id);scope=dict(packet_id=record_id,collection='versions')
+        offset=self._paging(cursor,limit,scope)
+        total=self.one('SELECT count(*) AS n FROM packet_versions WHERE packet_id=?',(record_id,))['n']
+        rows=self.rows('SELECT id,packet_id,ordinal,created_at FROM packet_versions WHERE packet_id=? ORDER BY ordinal DESC LIMIT ? OFFSET ?',(record_id,limit,offset))
+        return self.envelope(items=[dict(row,is_selected=row['id']==packet['selected_version_id']) for row in rows],total=total,
+            next_cursor=self._cursor(offset+limit,scope) if offset+limit<total else None)
+
+    def case_history(self,record_id,limit=50,cursor=None):
+        self.get('case',record_id);scope=dict(case_id=record_id,collection='history');offset=self._paging(cursor,limit,scope)
+        total=self.one('SELECT count(*) AS n FROM activities WHERE case_id=?',(record_id,))['n']
+        rows=self.rows('SELECT a.id,a.kind,a.occurred_at,a.evidence,COALESCE(a.packet_id,v.packet_id) AS packet_id,a.version_id FROM activities a LEFT JOIN packet_versions v ON v.id=a.version_id WHERE a.case_id=? ORDER BY a.occurred_at,a.id LIMIT ? OFFSET ?',(record_id,limit,offset))
+        return self.envelope(items=[dict(row,payload_unknown=row['kind']=='sent' and not row['version_id']) for row in rows],total=total,
+            next_cursor=self._cursor(offset+limit,scope) if offset+limit<total else None)
+
+    def retained_history_sources(self):
+        return self.rows("SELECT id,body FROM record_history WHERE kind='legacy:history_imports' ORDER BY id")
+
+    def historical_observations(self,limit=25,cursor=None):
+        scope=dict(collection='historical_observations');offset=self._paging(cursor,limit,scope)
+        total=self.one("SELECT count(*) AS n FROM view_exports WHERE kind LIKE 'history_observation:%'")['n']
+        original=self.one("SELECT count(*) AS n FROM record_history WHERE kind='legacy:history_imports'")['n']
+        rows=self.rows("SELECT path FROM view_exports WHERE kind LIKE 'history_observation:%' ORDER BY kind LIMIT ? OFFSET ?",(limit,offset))
+        return self.envelope(items=[json.loads(row['path']) for row in rows],total=total,pending_projection=max(0,original-total),projection_current=original==total,
+            next_cursor=self._cursor(offset+limit,scope) if offset+limit<total else None)
+
+    def exports(self):
+        from .views import export_listing
+        return export_listing(self)
+
     def case_detail(self, record_id):
         case = self.get('case',record_id)
-        packets = self.rows('SELECT id,purpose,person_id,selected_version_id FROM packets WHERE case_id=? ORDER BY id',(record_id,))
+        packets = self.packet_summaries('p.case_id=?',[record_id])
         selected = self.one('SELECT p.* FROM packets p JOIN case_selections s ON s.packet_id=p.id WHERE s.case_id=?',(record_id,))
         selection = self.selection(selected['id']) if selected and selected['selected_version_id'] else None
-        interview = [dict(slot=s['name'],text=s['text'],artifact_id=s['artifact_id']) for s in selection['slots'] if s['name']=='interview'] if selection else []
+        interview = selection['interview'] if selection else []
         sources = [self.get('source',sid) for sid in json.loads(case['detail'])['source_ids']]
+        history=self.case_history(record_id)
+        opportunity=self.get('opportunity',case['opportunity_id']) if case['opportunity_id'] else None
         return self.envelope(case=self.case_summary(case),notes=case['notes'],packets=packets,selection=selection,
-             history=self.rows('SELECT id,kind,occurred_at,evidence,version_id FROM activities WHERE case_id=? ORDER BY occurred_at LIMIT 100',(record_id,)),
+             history=history['items'],history_total=history['total'],history_next_cursor=history['next_cursor'],
+             role=dict(url=opportunity['canonical_url'],reference=opportunity['requisition']) if opportunity else None,
              interview=interview,sources=sources)
 
     def readable_target(self,case):
@@ -698,7 +786,7 @@ class Snapshot:
         return compile_command(self,command)
 
 
-TABLES = {'source':'sources','claim':'claims','track':'tracks','answer':'answers','company':'companies',
+TABLES = {'opportunity':'opportunities','source':'sources','claim':'claims','track':'tracks','answer':'answers','company':'companies',
           'person':'persons','case':'cases','packet':'packets','version':'packet_versions',
           'object':'objects','batch':'batches','activity':'activities'}
 
@@ -817,6 +905,7 @@ class Repository:
         if target.exists():
             require(target.read_bytes() == content, 'MATERIAL_CHANGED', 'Object collision or changed bytes')
         else:
+            self.check_disk_space(extra=len(content))
             staged=contained(self.root,'.career-agent/staging/'+new_id('object'))
             fd=os.open(staged,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
             with os.fdopen(fd,'wb') as stream:
@@ -827,20 +916,166 @@ class Repository:
             staged.unlink()
         return dict(id='artifact_'+sha+'_'+extension, sha256=sha, extension=extension, size=len(content), media_type=media_type)
 
-    def backup(self, destination):
+    def check_disk_space(self, extra=0):
+        """Reserve a full checkpoint, rollback growth and bounded staging before writes."""
+        required = self.database.stat().st_size * 2 + 64 * 1024 * 1024 + extra
+        free = shutil.disk_usage(self.root).free
+        if free < required:
+            raise CareerError('DISK_SPACE_LOW', 'Insufficient space for a verified checkpoint and atomic write', 507,
+                              [dict(code='DISK_SPACE_LOW', message='Recovery and transaction headroom required', required_bytes=required, free_bytes=free)])
+
+    @staticmethod
+    def storage_failure(error):
+        return isinstance(error, OSError) and error.errno in (errno.ENOSPC, errno.EDQUOT) or any(
+            value in str(error).lower() for value in ('database or disk is full', 'no space left', 'disk quota'))
+
+    def backup(self, destination, expected_revision=None):
+        """Publish a complete verified online backup atomically; partial files are never targets."""
+        self.check_disk_space()
         target = contained(self.root, destination)
         require(not target.exists(), 'ALREADY_EXISTS', 'Backup target already exists')
-        source = self.connect()
-        backup = sqlite3.connect(target)
+        temporary = target.with_name('.' + target.name + '.' + new_id('partial'))
+        source = backup = None
         try:
+            descriptor = os.open(temporary, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            os.close(descriptor)
+            source = self.connect()
+            backup = sqlite3.connect(temporary)
             source.backup(backup)
+            require(backup.execute('PRAGMA integrity_check').fetchone()[0] == 'ok',
+                    'BACKUP_INVALID', 'Backup integrity check failed')
+            require(not list(backup.execute('PRAGMA foreign_key_check')), 'BACKUP_INVALID', 'Backup relationships failed')
+            row = backup.execute('SELECT id,revision FROM workspace').fetchone()
+            require(row and (expected_revision is None or row[1] == expected_revision),
+                    'BACKUP_INVALID', 'Backup revision differs from the protected transaction')
+            backup.close(); backup = None
+            with temporary.open('rb') as stream: os.fsync(stream.fileno())
+            checksum = self.file_digest(temporary)
+            os.link(temporary, target)
+            self.sync_directory(target.parent)
+            return dict(workspace_id=row[0], revision=row[1], sha256=checksum, bytes=target.stat().st_size)
+        except (OSError, sqlite3.Error) as error:
+            if self.storage_failure(error):
+                raise CareerError('DISK_SPACE_LOW', 'Storage exhausted while creating recovery checkpoint; nothing committed', 507) from error
+            raise CareerError('BACKUP_FAILED', 'Recovery checkpoint could not be completed; nothing committed', 503) from error
         finally:
-            backup.close()
-            source.close()
-        os.chmod(target, 0o600)
-        return target
+            if backup is not None: backup.close()
+            if source is not None: source.close()
+            if temporary.exists(): temporary.unlink()
+            journal = temporary.with_name(temporary.name + '-journal')
+            if journal.exists(): journal.unlink()
+
+    @staticmethod
+    def sync_directory(path):
+        descriptor = os.open(path, os.O_RDONLY)
+        try: os.fsync(descriptor)
+        finally: os.close(descriptor)
+
+    @staticmethod
+    def file_digest(path):
+        import hashlib
+        checksum = hashlib.sha256()
+        with path.open('rb') as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b''): checksum.update(chunk)
+        return checksum.hexdigest()
+
+    def automatic_backup(self, revision, request_id, workspace_id, command_hash=None):
+        # Only the new owned namespace rotates. Earlier/manual/export/migration copies are never adopted.
+        directory = contained(self.root, 'Backups/Automatic')
+        directory.mkdir(exist_ok=True, mode=0o700)
+        path = contained(self.root, 'Backups/Automatic/r' + str(revision) + '-' + request_id + '.sqlite3')
+        metadata = contained(self.root, str(path.with_suffix('.json').relative_to(self.root)))
+        record = None
+        if path.exists() or metadata.exists():
+            try:
+                require(path.is_file(), 'BACKUP_INVALID', 'Checkpoint database is missing')
+                # Missing completion metadata has no trusted content digest. Preserve the orphan
+                # and rebuild; SQLite structural integrity cannot prove unchanged business values.
+                require(metadata.is_file(), 'BACKUP_INVALID', 'Checkpoint has no trusted completion metadata')
+                record = self.revalidate_automatic_backup(path, revision, request_id, workspace_id, command_hash)
+                if metadata.exists():
+                    require(metadata.stat().st_size <= 4096, 'BACKUP_INVALID', 'Checkpoint metadata exceeds its bound')
+                    stored = json.loads(metadata.read_text())
+                    require(all(stored.get(key) == record[key] for key in ('format', 'workspace_id', 'revision', 'request_id', 'command_hash', 'bytes', 'sha256')),
+                            'BACKUP_INVALID', 'Recovery metadata differs from its verified database')
+                    record = stored
+            except (CareerError, ValueError, sqlite3.Error):
+                # Preserve incomplete/corrupt bytes, then rebuild from the still-protected live revision.
+                quarantine = contained(self.root, 'Backups/Automatic/Quarantine')
+                quarantine.mkdir(exist_ok=True, mode=0o700)
+                suffix = new_id('incomplete')
+                for existing in (path, metadata):
+                    if existing.exists(): existing.rename(quarantine / (existing.name + '.' + suffix))
+                self.sync_directory(directory); self.sync_directory(quarantine)
+                record = None
+        if record is None:
+            record = self.backup(str(path.relative_to(self.root)), expected_revision=revision)
+            record.update(format='career-agent.automatic-backup/1', request_id=request_id, command_hash=command_hash, created_at=now())
+        if not metadata.exists():
+            temporary = metadata.with_name('.' + metadata.name + '.' + new_id('partial'))
+            try:
+                descriptor = os.open(temporary, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+                with os.fdopen(descriptor, 'w') as stream:
+                    stream.write(canonical(record)); stream.flush(); os.fsync(stream.fileno())
+                os.link(temporary, metadata); self.sync_directory(directory)
+            except OSError as error:
+                if self.storage_failure(error): raise CareerError('DISK_SPACE_LOW', 'Checkpoint metadata could not be persisted; nothing committed', 507) from error
+                raise CareerError('BACKUP_FAILED', 'Checkpoint metadata could not be persisted; nothing committed', 503) from error
+            finally:
+                if temporary.exists(): temporary.unlink()
+        self.prune_automatic_backups(workspace_id, protected=metadata)
+
+    def revalidate_automatic_backup(self, path, revision, request_id, workspace_id, command_hash):
+        """Validate a completed checkpoint against the caller's persisted digest witness."""
+        database = sqlite3.connect(path.as_uri() + '?mode=ro&immutable=1', uri=True)
+        try:
+            require(database.execute('PRAGMA integrity_check').fetchone()[0] == 'ok', 'BACKUP_INVALID', 'Recovery database integrity failed')
+            require(not list(database.execute('PRAGMA foreign_key_check')), 'BACKUP_INVALID', 'Recovery database relationships failed')
+            row = database.execute('SELECT id,revision FROM workspace').fetchone()
+            require(tuple(row or ()) == (workspace_id, revision), 'BACKUP_INVALID', 'Recovery database identity/revision differs')
+            require(database.execute('SELECT 1 FROM plans WHERE request_id=? AND base_revision=? AND (? IS NULL OR command_hash=?) LIMIT 1', (request_id, revision, command_hash, command_hash)).fetchone(),
+                    'BACKUP_INVALID', 'Recovery database does not contain the protected request plan')
+            require(not database.execute('SELECT 1 FROM commands WHERE request_id=?', (request_id,)).fetchone(),
+                    'BACKUP_INVALID', 'Recovery database is not the pre-command state')
+        finally: database.close()
+        return dict(format='career-agent.automatic-backup/1', workspace_id=workspace_id, revision=revision,
+                    request_id=request_id, command_hash=command_hash, sha256=self.file_digest(path), bytes=path.stat().st_size, created_at=now())
+
+    def prune_automatic_backups(self, workspace_id, protected):
+        """Keep latest ten plus earliest checkpoint on each of the latest seven UTC dates."""
+        directory = contained(self.root, 'Backups/Automatic')
+        records = []
+        for metadata in directory.glob('r*.json'):
+            if not re.fullmatch(r'r[0-9]+-[A-Za-z0-9_-]+\.json', metadata.name): continue
+            metadata = contained(self.root, str(metadata.relative_to(self.root)))
+            if metadata.stat().st_size > 4096: continue
+            try: value = json.loads(metadata.read_text())
+            except (OSError, ValueError): continue
+            if value.get('format') != 'career-agent.automatic-backup/1' or value.get('workspace_id') != workspace_id: continue
+            if type(value.get('revision')) is not int or not isinstance(value.get('created_at'), str): continue
+            if not isinstance(value.get('request_id'), str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', value['request_id']): continue
+            if metadata.name != 'r' + str(value['revision']) + '-' + value['request_id'] + '.json': continue
+            try: created = datetime.fromisoformat(value['created_at'].replace('Z', '+00:00')).astimezone(timezone.utc)
+            except ValueError: continue
+            path = contained(self.root, str(metadata.with_suffix('.sqlite3').relative_to(self.root)))
+            if not path.is_file() or path.stat().st_size != value.get('bytes'): continue
+            records.append((created, value['revision'], metadata, path, value))
+        records.sort(key=lambda entry: (entry[1], entry[2].name))
+        require(any(entry[2] == protected for entry in records), 'BACKUP_INVALID', 'Current verified checkpoint cannot be pruned')
+        recent = [entry for entry in reversed(records) if entry[2] != protected][:9]
+        keep = {protected} | {entry[2] for entry in recent}
+        days = sorted({entry[0].date() for entry in records})[-7:]
+        for day in days: keep.add(min((entry for entry in records if entry[0].date() == day), key=lambda entry: entry[0])[2])
+        for _, _, metadata, path, value in records:
+            if metadata in keep: continue
+            require(self.file_digest(path) == value.get('sha256'), 'BACKUP_INVALID', 'A recovery file changed; automatic deletion refused')
+            try: path.unlink(); metadata.unlink()
+            except OSError as error:
+                raise CareerError('BACKUP_RETENTION_FAILED', 'Automatic checkpoint retention failed; nothing committed', 503) from error
+        self.sync_directory(directory)
 
     def store_plan(self, command, plan):
+        self.check_disk_space()
         plan=dict(plan,validator_identity=self.code_identity())
         plan_id = new_id('plan')
         db = self.connect()
@@ -876,11 +1111,8 @@ class Repository:
                 require(path.is_file() and digest(path.read_bytes()) == obj['sha256'], 'MATERIAL_CHANGED', 'Staged bytes changed')
             for guard in plan.get('time_guards', []):
                 require(not guard or timestamp(guard) > datetime.now(timezone.utc), 'VALIDITY_EXPIRED', 'A time-dependent input expired; replan', 409)
-            # One revision-bound backup per command, using SQLite online backup, never raw copy.
-            backup_name = 'Backups/r'+str(snapshot.revision)+'-'+row['request_id']+'.sqlite3'
-            backup_path = contained(self.root, backup_name)
-            if not backup_path.exists():
-                self.backup(backup_name)
+            self.check_disk_space()
+            self.automatic_backup(snapshot.revision, row['request_id'], snapshot.workspace_id, row['command_hash'])
             revision = snapshot.revision + 1
             for statement, args in plan['statements']:
                 db.execute(statement, args)
@@ -900,6 +1132,8 @@ class Repository:
         except sqlite3.IntegrityError as error:
             raise CareerError('RELATION_CONFLICT', 'Relation constraint failed; nothing committed', 409) from error
         except sqlite3.OperationalError as error:
+            if self.storage_failure(error):
+                raise CareerError('DISK_SPACE_LOW', 'Storage exhausted; nothing committed. Check command status before retry', 507) from error
             if 'locked' in str(error):
                 raise CareerError('BUSY', 'Workspace busy; resolve command status before retry',503) from error
             raise CareerError('STATE_CORRUPT','Database operation failed; nothing committed',500) from error
@@ -939,6 +1173,43 @@ class Repository:
             raise CareerError('BUSY','Integrity invalidation waits for the current bounded writer',503) from error
         finally:db.rollback();db.close()
 
+    def cache_historical_observations(self,bundle):
+        from .contracts import identifier
+        require(isinstance(bundle,dict) and set(bundle)=={'format','workspace_id','revision','source_fingerprint','items'} and bundle['format']=='career-agent.history-projection/1','INVALID_PROJECTION','Typed history projection required')
+        require(isinstance(bundle['items'],list) and len(bundle['items'])<=100000,'LIMIT_EXCEEDED','History projection exceeds bounds')
+        db=self.connect()
+        try:
+            db.execute('BEGIN IMMEDIATE');snapshot=Snapshot(self,db)
+            require(bundle['workspace_id']==snapshot.workspace_id and bundle['revision']==snapshot.revision,'REVISION_CONFLICT','Projection source changed; prepare it again',409)
+            originals=snapshot.retained_history_sources()
+            sources=[dict(record_history_id=row['id'],sha256=digest(json.loads(row['body']))) for row in originals]
+            require(bundle['source_fingerprint']==digest(sources),'SOURCE_CHANGED','Retained historical source changed',409)
+            expected={row['record_history_id']:row['sha256'] for row in sources};seen=set();total_bytes=0
+            for item in bundle['items']:
+                require(isinstance(item,dict) and item.get('format')=='career-agent.history-observation/1' and item.get('scope')=='unlinked' and item.get('case_id') is None and item.get('canonical_activity_created') is False,'INVALID_PROJECTION','Only unlinked read-only observations are accepted')
+                required={'format','id','original_status','event_kind','evidence_level','employer','role','role_url','date','channel','evidence','source','historical_opportunity_reference','provider_message_id','provider_thread_id','case_id','scope','canonical_activity_created'}
+                require(set(item)==required,'INVALID_PROJECTION','Invalid typed observation fields')
+                for field in ('original_status','event_kind','evidence_level','employer','role','channel'):
+                    require(isinstance(item[field],str) and len(item[field])<=32768,'INVALID_PROJECTION','Bounded observation text required')
+                for field in ('role_url','evidence','historical_opportunity_reference','provider_message_id','provider_thread_id'):
+                    require(item[field] is None or isinstance(item[field],str) and len(item[field])<=32768,'INVALID_PROJECTION','Bounded optional observation text required')
+                date=item['date'];require(isinstance(date,dict) and set(date)=={'text','precision','occurred_at'} and isinstance(date['text'],str) and len(date['text'])<=32768 and date['precision'] in ('exact','approximate','unknown') and (date['occurred_at'] is None or isinstance(date['occurred_at'],str) and len(date['occurred_at'])<=32768),'INVALID_PROJECTION','Explicit historical date precision required')
+                source=item.get('source',{});require(isinstance(source,dict) and set(source)=={'record_history_id','sha256','locator','kind'} and all(isinstance(source[field],str) and len(source[field])<=32768 for field in ('sha256','locator','kind')),'INVALID_PROJECTION','Typed source binding required')
+                key=source.get('record_history_id');require(type(key) is int,'INVALID_PROJECTION','Physical source ID required');identifier(item.get('id'))
+                require(item['id']=='observation_'+digest('legacy:history_imports:'+str(key))[:24],'INVALID_PROJECTION','Observation identity must bind its physical source')
+                total_bytes+=len(canonical(item).encode());require(total_bytes<=64*1024*1024,'LIMIT_EXCEEDED','History projection exceeds byte budget')
+                require(key in expected and key not in seen and source.get('sha256')==expected[key],'SOURCE_CHANGED','History binding missing, duplicate or changed',409)
+                require(len(canonical(item).encode())<=65536,'LIMIT_EXCEEDED','Observation too large');seen.add(key)
+            require(seen==set(expected),'INCOMPLETE_PROJECTION','Every retained observation must have one projection')
+            db.execute("DELETE FROM view_exports WHERE kind LIKE 'history_observation:%'")
+            for item in bundle['items']:
+                db.execute('INSERT INTO view_exports VALUES (?,?,?,?)',('history_observation:'+item['id'],snapshot.revision,item['source']['sha256'],canonical(item)))
+            db.commit()
+        except BaseException:
+            db.rollback();raise
+        finally:db.close()
+        return dict(cached=len(bundle['items']),business_mutations=0,revision=bundle['revision'])
+
     def record_view_export(self,kind,revision,destination,sha256):
         db=self.connect()
         try:db.execute('INSERT INTO view_exports VALUES (?,?,?,?) ON CONFLICT(kind) DO UPDATE SET revision=excluded.revision,sha256=excluded.sha256,path=excluded.path',(kind,revision,sha256,destination))
@@ -947,6 +1218,7 @@ class Repository:
     def portable_export(self):
         """Revision-bound DB backup plus every registered immutable object and manifest."""
         with self.open() as snapshot:
+            self.check_disk_space(extra=snapshot.one('SELECT coalesce(sum(size),0) AS n FROM objects')['n'])
             relative='Backups/export-r'+str(snapshot.revision)+'-'+new_id('export')
             output=contained(self.root,relative);(output/'Data').mkdir(mode=0o700,parents=True)
             (output/'Objects').mkdir(mode=0o700)
@@ -1235,9 +1507,14 @@ def compile_command(snapshot, command):
     elif intent=='packet.save':
         packet=snapshot.get('packet',data['packet_id'])
         require(isinstance(data['documents'],list) and 1<=len(data['documents'])<=6,'INVALID_INPUT','Packet requires 1..6 documents')
+        dialogue_source_ids=set()
         names=set()
         for document in data['documents']:
             require(isinstance(document,dict) and set(document)=={'slot','text'} and document['slot'] in ('resume','message','dossier','answers','interview','notes'), 'INVALID_INPUT','Document requires declared slot and text')
+            if document['slot']=='interview':
+                from .interview import validate_interview_text
+                dialogue=validate_interview_text(document['text'],lambda source_id:snapshot.get('source',source_id))
+                if dialogue:dialogue_source_ids.update(source_id for turn in dialogue['turns'] for source_id in turn['source_ids'])
             require(document['slot'] not in names,'INVALID_INPUT','Duplicate document slot');names.add(document['slot'])
             text(document['text'],'document text',262144)
         source_version_id=data.get('source_version_id') or packet['selected_version_id']
@@ -1298,6 +1575,7 @@ def compile_command(snapshot, command):
         for answer in answers:
             dependency(version_id,'answer',answer,'mechanical-contact' if answer['meaning'].startswith('contact.') else 'eligibility')
             if answer['valid_until']:guards.append(answer['valid_until'])
+        for source in refs('source',sorted(dialogue_source_ids)):dependency(version_id,'source',source,'interview-reference')
         target=snapshot.get('case',packet['case_id'])
         target_detail=json.loads(target['detail'])
         dependency(version_id,'case',dict(target,version=target_detail.get('semantic_version',1)),'eligibility')

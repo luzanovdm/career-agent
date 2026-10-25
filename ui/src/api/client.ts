@@ -12,6 +12,8 @@ import type {
   AgentIntent,
   AgentHandoff,
   BoardPage,
+  PacketPage,
+  VersionPage,
 } from "./types";
 export class ApiError extends Error {
   constructor(
@@ -128,9 +130,24 @@ export class Api {
       signal,
     });
   }
-  selection(id: string, signal?: AbortSignal) {
+  contactPackets(id: string, cursor?: string, signal?: AbortSignal) {
+    return this.request<PacketPage>(
+      `/api/v1/contacts/${encodeURIComponent(id)}/packets?` +
+        new URLSearchParams({ limit: "50", ...(cursor ? { cursor } : {}) }),
+      { signal },
+    );
+  }
+  versions(id: string, cursor?: string, signal?: AbortSignal) {
+    return this.request<VersionPage>(
+      `/api/v1/packets/${encodeURIComponent(id)}/versions?` +
+        new URLSearchParams({ limit: "50", ...(cursor ? { cursor } : {}) }),
+      { signal },
+    );
+  }
+  selection(id: string, signal?: AbortSignal, version_id?: string) {
     return this.request<Selection & Snapshot>(
-      `/api/v1/packets/${encodeURIComponent(id)}/selection`,
+      `/api/v1/packets/${encodeURIComponent(id)}/selection` +
+        (version_id ? "?" + new URLSearchParams({ version_id }) : ""),
       { signal },
     );
   }
@@ -155,6 +172,8 @@ export class Api {
     case_id?: string,
     signal?: AbortSignal,
     track_id?: string,
+    packet_id?: string,
+    version_id?: string,
   ) {
     return this.request<AgentHandoff>(
       "/api/v1/agent-intent?" +
@@ -162,6 +181,8 @@ export class Api {
           intent,
           ...(case_id ? { case_id } : {}),
           ...(track_id ? { track_id } : {}),
+          ...(packet_id ? { packet_id } : {}),
+          ...(version_id ? { version_id } : {}),
         }),
       { signal },
     );

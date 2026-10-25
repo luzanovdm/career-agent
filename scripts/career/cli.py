@@ -23,8 +23,8 @@ def parser():
         entry=sub.add_parser(op);entry.add_argument('--input',default='-',help='Bounded JSON request file, or stdin')
     apply=sub.add_parser('apply');apply.add_argument('plan_id')
     status=sub.add_parser('command-status');status.add_argument('request_id')
-    query=sub.add_parser('query');query.add_argument('kind',choices=('board','cases','contacts','case','selection','changes','assess'))
-    query.add_argument('--id',dest='record_id');query.add_argument('--limit',type=int,default=50);query.add_argument('--after',type=int,default=0);query.add_argument('--cursor');query.add_argument('--q',default='');query.add_argument('--view',choices=('board','table'),default='table');query.add_argument('--column');query.add_argument('--track-id');query.add_argument('--company-id');query.add_argument('--closed',action='store_true')
+    query=sub.add_parser('query');query.add_argument('kind',choices=('board','cases','contacts','contact-packets','versions','case-history','historical-observations','case','selection','changes','assess'))
+    query.add_argument('--id',dest='record_id');query.add_argument('--version-id');query.add_argument('--limit',type=int,default=50);query.add_argument('--after',type=int,default=0);query.add_argument('--cursor');query.add_argument('--q',default='');query.add_argument('--view',choices=('board','table'),default='table');query.add_argument('--column');query.add_argument('--track-id');query.add_argument('--company-id');query.add_argument('--closed',action='store_true')
     deliver=sub.add_parser('deliver');deliver.add_argument('packet_id')
     render=sub.add_parser('render');render.add_argument('--format',choices=('csv','xlsx','profile','snapshot'),default='csv')
     ui=sub.add_parser('ui');ui.add_argument('action',choices=('open','status','stop','restart','serve'));ui.add_argument('--no-browser',action='store_true')
@@ -83,6 +83,10 @@ def main(argv=None):
                 filters={'limit':args.limit} if args.kind in ('contacts','cases') else {'after':args.after} if args.kind=='changes' else {'record_id':args.record_id}
                 if args.kind in ('cases','board'):filters=dict(limit=args.limit,q=args.q,track_id=args.track_id,closed=args.closed)
                 if args.kind=='cases':filters.update(cursor=args.cursor,view=args.view,column=args.column)
+                if args.kind=='selection' and args.version_id:filters['version_id']=args.version_id
+                if args.kind=='historical-observations':filters=dict(limit=args.limit,cursor=args.cursor)
+                if args.kind in ('versions','case-history'):filters.update(limit=args.limit,cursor=args.cursor)
+                if args.kind=='contact-packets':filters.update(limit=args.limit,cursor=args.cursor)
                 if args.kind=='contacts':filters.update(cursor=args.cursor,q=args.q,company_id=args.company_id)
                 result=tasks.query(args.kind,**filters)
             elif args.operation=='deliver':

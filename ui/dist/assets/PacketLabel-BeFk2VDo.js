@@ -1,0 +1,1 @@
+import{a9 as e}from"./editing-Cqakha65.js";function a(r){return[e(`packet.purpose.${r.purpose}`),r.person_name||e("packet.noPerson"),r.is_primary?e("packet.primary"):e("packet.alternative"),r.selected_version_id?e("packet.savedVersion"):e("packet.empty")].join(" · ")}export{a as p};

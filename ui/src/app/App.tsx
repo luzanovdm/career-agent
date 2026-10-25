@@ -21,6 +21,7 @@ import {
   Field,
   Icon,
   Notice,
+  Disclosure,
 } from "../ui/controls";
 import { Cases } from "../features/Cases";
 const Detail = lazy(() =>
@@ -39,6 +40,7 @@ import { useSnapshot } from "./snapshot";
 import { useTheme } from "./theme";
 import type { AgentIntent } from "../api/types";
 import { AgentPrompt } from "../features/AgentPrompt";
+import { Exports } from "../features/Exports";
 import { documentLanguage } from "./documentLanguage";
 const statusLabels: Record<Connection, string> = {
   connecting: "connection.connecting",
@@ -70,6 +72,9 @@ export function App({
     [view, setView] = useState<"board" | "table">("board"),
     [selected, setSelected] = useState<string | null>(null),
     [highlight, setHighlight] = useState<string | null>(null),
+    [returnSection, setReturnSection] = useState("cases"),
+    [selectedContact, setSelectedContact] = useState<string>(),
+    [version, setVersion] = useState<string | null>(null),
     [packet, setPacket] = useState<string | null>(null),
     [q, setQ] = useState(""),
     [search, setSearch] = useState(""),
@@ -107,6 +112,7 @@ export function App({
     { q: search, track_id: track, closed },
     selected,
     packet,
+    version,
   );
   const { data, error, refreshing, invalidate } = snapshot;
   const theme =
@@ -148,17 +154,26 @@ export function App({
     });
   const selectCase = (id: string) =>
     navigate(() => {
+      setReturnSection("cases");
       setSelected(id);
       setHighlight(id);
       setPacket(null);
+      setVersion(null);
     });
   const selectedDetail =
-    data?.detail?.case.id === selected ? data.detail : undefined;
+    data?.detail?.case.id === selected &&
+    (!packet ||
+      (data.detail.viewed_packet_id === packet &&
+        (data.detail.viewed_version_id ?? null) === version))
+      ? data.detail
+      : undefined;
   const casePage = data?.pages.table ?? data?.pages.qualify;
   const goBack = () =>
     navigate(() => {
       setSelected(null);
       setPacket(null);
+      setVersion(null);
+      setSection(returnSection);
       requestAnimationFrame(() =>
         document
           .querySelector<HTMLButtonElement>(
@@ -294,6 +309,10 @@ export function App({
                         {t(statusLabels[connection])}. {t("connection.stale")}
                       </div>
                     )}
+                    <Exports
+                      exports={data.context.exports}
+                      revision={data.context.revision}
+                    />
                     {section === "cases" && (
                       <>
                         <section
@@ -383,12 +402,17 @@ export function App({
                           <>
                             <Button className="back-button" onPress={goBack}>
                               <Icon name="back" />
-                              {t("nav.back")}
+                              {t(
+                                returnSection === "contacts"
+                                  ? "packet.backContacts"
+                                  : "nav.back",
+                              )}
                             </Button>
                             {selectedDetail ? (
                               <Detail
                                 key={selectedDetail.case.id}
                                 detail={selectedDetail}
+                                selectedPacketId={packet}
                                 materialLanguage={documentLanguage(
                                   selectedDetail.case.tracks,
                                   data.context.tracks,
@@ -396,7 +420,18 @@ export function App({
                                 api={api}
                                 onDirty={onDirty}
                                 refresh={invalidate}
-                                onPacket={(id) => navigate(() => setPacket(id))}
+                                onPacket={(id) =>
+                                  navigate(() => {
+                                    setPacket(id);
+                                    setVersion(null);
+                                  })
+                                }
+                                onVersion={(packetId, versionId) =>
+                                  navigate(() => {
+                                    setPacket(packetId);
+                                    setVersion(versionId);
+                                  })
+                                }
                               />
                             ) : (
                               <p role="status">{t("common.loading")}</p>
@@ -415,6 +450,17 @@ export function App({
                           />
                         </div>
                         <Contacts
+                          selected={selectedContact}
+                          onSelect={setSelectedContact}
+                          onOpenPacket={(caseId, packetId) =>
+                            navigate(() => {
+                              setReturnSection("contacts");
+                              setSection("cases");
+                              setSelected(caseId);
+                              setPacket(packetId);
+                              setVersion(null);
+                            })
+                          }
                           page={data.contacts}
                           onMore={() => snapshot.more("contacts")}
                           pending={refreshing}

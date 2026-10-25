@@ -45,3 +45,8 @@ __pycache__/
 
 # Track only the reusable source shell; generated/private HTML stays ignored.
 !/templates/portal/index.html
+
+# Local development dependencies and fictional verification outputs.
+node_modules/
+/ui/evidence/
+/ui/test-results/

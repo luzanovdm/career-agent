@@ -237,7 +237,7 @@ class Handler(BaseHTTPRequestHandler):
                 elif self.command=='GET' and path=='/api/v1/localization':
                     route='localization';require(set(values)<= {'locale'},'INVALID_QUERY','Unknown localization filter');payload=tasks.query('localization',**values)
                 elif self.command=='GET' and path=='/api/v1/agent-intent':
-                    route='agent-intent';require(set(values)<= {'intent','case_id','track_id'} and 'intent' in values,'INVALID_QUERY','Expected intent and optional case_id/track_id');payload=tasks.query('agent-intent',**values)
+                    route='agent-intent';require(set(values)<= {'intent','case_id','track_id','packet_id','version_id'} and 'intent' in values,'INVALID_QUERY','Expected intent and optional case_id/track_id/packet_id');payload=tasks.query('agent-intent',**values)
                 elif self.command=='GET' and path in ('/api/v1/cases','/api/v1/contacts','/api/v1/board'):
                     route=path.rsplit('/',1)[-1]
                     allowed={'limit','cursor','q','company_id'} if route=='contacts' else {'limit','cursor','view','column','track_id','q','closed'}
@@ -248,10 +248,26 @@ class Handler(BaseHTTPRequestHandler):
                         require(values['closed'] in ('true','false'),'INVALID_QUERY','Invalid closed filter')
                         values['closed']=values['closed']=='true'
                     payload=tasks.query(route,**values)
+                elif self.command=='GET' and re.fullmatch(r'/api/v1/contacts/[A-Za-z0-9_-]{1,128}/packets',path):
+                    route='contact-packets';require(set(values)<={'limit','cursor'},'INVALID_QUERY','Unknown packet filter')
+                    if 'limit' in values:values['limit']=int(values['limit'])
+                    payload=tasks.query(route,record_id=path.split('/')[-2],**values)
+                elif self.command=='GET' and re.fullmatch(r'/api/v1/packets/[A-Za-z0-9_-]{1,128}/versions',path):
+                    route='versions';require(set(values)<={'limit','cursor'},'INVALID_QUERY','Unknown version filter')
+                    if 'limit' in values:values['limit']=int(values['limit'])
+                    payload=tasks.query(route,record_id=path.split('/')[-2],**values)
+                elif self.command=='GET' and re.fullmatch(r'/api/v1/cases/[A-Za-z0-9_-]{1,128}/history',path):
+                    route='case-history';require(set(values)<={'limit','cursor'},'INVALID_QUERY','Unknown history filter')
+                    if 'limit' in values:values['limit']=int(values['limit'])
+                    payload=tasks.query(route,record_id=path.split('/')[-2],**values)
+                elif self.command=='GET' and path=='/api/v1/history/observations':
+                    route='historical-observations';require(set(values)<={'limit','cursor'},'INVALID_QUERY','Unknown historical filter')
+                    if 'limit' in values:values['limit']=int(values['limit'])
+                    payload=tasks.query(route,**values)
                 elif self.command=='GET' and re.fullmatch(r'/api/v1/cases/[A-Za-z0-9_-]{1,128}',path):
                     route='case-detail';payload=tasks.query('case',record_id=path.split('/')[-1])
                 elif self.command=='GET' and re.fullmatch(r'/api/v1/packets/[A-Za-z0-9_-]{1,128}/selection',path):
-                    route='selection';payload=tasks.query('selection',record_id=path.split('/')[-2])
+                    route='selection';require(set(values)<={'version_id'},'INVALID_QUERY','Unknown selection filter');payload=tasks.query('selection',record_id=path.split('/')[-2],**values)
                 elif self.command=='POST' and path=='/api/v1/commands':
                     route='commands';payload=tasks.command(self.body())
                 elif self.command=='GET' and re.fullmatch(r'/api/v1/commands/[A-Za-z0-9_-]{1,128}',path):
@@ -269,6 +285,11 @@ class Handler(BaseHTTPRequestHandler):
                     route='download'
                     with tasks.repository.open() as snapshot:artifact,source=snapshot.object(path.split('/')[-2]);content=source.read_bytes();require(digest(content)==artifact['sha256'],'MATERIAL_CHANGED','Download bytes changed during read')
                     status=200;return self.reply(200,content,artifact['media_type'],{'Content-Disposition':'attachment; filename="document.'+artifact['extension']+'"'})
+                elif self.command=='GET' and re.fullmatch(r'/api/v1/exports/[A-Za-z0-9_-]{1,128}/files/[0-9]{1,3}',path):
+                    route='view-download';require(not values,'INVALID_QUERY','Export download takes no filters')
+                    from .views import export_download
+                    with tasks.repository.open() as snapshot:content,media_type,name=export_download(snapshot,path.split('/')[-3],int(path.split('/')[-1]))
+                    status=200;return self.reply(200,content,media_type,{'Content-Disposition':'attachment; filename="'+name+'"'})
                 elif self.command=='POST' and path=='/api/v1/runtime/stop':
                     route='runtime-stop';require(self.body()=={},'INVALID_INPUT','Stop takes no input');payload=dict(status='stopping');self.server.stop()
                 else:raise CareerError('NOT_FOUND','Route not found',404)

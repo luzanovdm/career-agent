@@ -116,6 +116,32 @@ export const detail: CaseDetail = {
         text: "# Alex Example\n\nSynthetic career evidence for tests.",
         download_url: "/api/v1/artifacts/artifact-resume/download",
       },
+      {
+        name: "interview",
+        artifact_id: "interview-1",
+        sha256: "c".repeat(64),
+        media_type: "text/markdown",
+        text: JSON.stringify({
+          format: "career-agent.interview/1",
+          turns: [
+            {
+              kind: "question",
+              text: "How do you connect product decisions to delivery?",
+              status: "hypothesis",
+              source_ids: [],
+              terms: [],
+            },
+            {
+              kind: "answer",
+              text: "Use a confirmed project example. Describe your contribution and the evidence available; do not invent a metric.",
+              status: "outline",
+              source_ids: [],
+              terms: [],
+            },
+          ],
+        }),
+        download_url: "/api/v1/artifacts/interview-1/download",
+      },
     ],
     assessment: {
       saved: true,
@@ -138,14 +164,22 @@ export const detail: CaseDetail = {
   ],
   interview: [
     {
-      slot: "Question",
+      slot: "interview",
+      kind: "question",
+      status: "hypothesis",
+      sources: [],
+      terms: [],
       text: "How do you connect product decisions to delivery?",
       artifact_id: "interview-1",
     },
     {
-      slot: "Answer outline",
+      slot: "interview",
+      kind: "answer",
+      status: "outline",
+      sources: [],
+      terms: [],
       text: "Use a confirmed project example. Describe your contribution and the evidence available; do not invent a metric.",
-      artifact_id: "interview-2",
+      artifact_id: "interview-1",
     },
   ],
   sources: [

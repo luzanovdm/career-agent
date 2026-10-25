@@ -1914,3 +1914,18 @@ dd {
 .field[data-invalid] textarea {
   border-color: var(--danger);
 }
+
+/* Bounded read projections reuse the existing surface and spacing tokens. */
+.packet-navigation, .version-browser, .evidence-bank { min-width: 0; margin-block: 16px; }
+.evidence-record { padding-block: 20px; border-bottom: 1px solid var(--border); }
+.evidence-record:last-child { border-bottom: 0; }
+.evidence-record h3 { margin: 0 0 10px; }
+.evidence-value { margin-block: 12px; }
+.evidence-value > div { margin-block: 12px; }
+.evidence-value dt { color: var(--secondary); }
+.evidence-value dd { margin-inline-start: 0; }
+.evidence-bank, .source-evidence, .retained-history, .contact-packets { overflow-wrap: anywhere; }
+.evidence-text, .source-evidence blockquote { white-space: pre-wrap; }
+.contact-packets li, .history-list li { margin-block: 16px; }
+.source-evidence { margin-block: 12px; }
+.dialogue .document, .dialogue .file, .dialogue .note { align-self: stretch; }
