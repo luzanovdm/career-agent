@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.2
+
+- Resolve numeric identifiers from canonical identity and agent-declared scoped source references instead of hardcoded brand exceptions. Validate individual occurrences and retain measurement/count/unit distinctions.
+- Bind supported quantities to their actual claim or scoped answer ranges; an entity digit or equal number elsewhere cannot approve an unrelated achievement. Persist script-computed numeric audit ranges and source/entity version dependencies.
+- Preserve saved bytes and historical reviews. Re-review creates a new immutable version with unchanged document hashes; no existing partial draft is silently approved.
+
 ## 1.0.1
 
 - Bound automatic SQLite recovery checkpoints to the latest ten plus one for each of seven UTC dates. Keep manual, portable, migration and older unmanaged archives outside automatic rotation.
