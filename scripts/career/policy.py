@@ -97,13 +97,12 @@ def coverage_issues(documents,claims,review,entities=(),sources=()):
         present_numbers={entry['text'] for entry in occurrences(rendered,references) if entry['role']=='quantity'}
         for number in original_numbers-present_numbers:
             issues.append(issue('METRIC_MISSING','Original numerical span is absent from the selected claim wording: '+number,claim['id']))
-        original=claim['assertion'].casefold();actual_text=rendered.casefold()
-        unit_groups=[('%','percent','percentage'),('usd','$'),('eur','€'),('milliseconds','millisecond','ms'),('seconds','second'),('hours','hour'),('minutes','minute')]
-        for group in unit_groups:
-            def contains(value,unit):
-                return unit in value if not unit.isalpha() else bool(re.search(r'\b'+re.escape(unit)+r'\b',value))
-            if any(contains(original,unit) for unit in group) and not any(contains(actual_text,unit) for unit in group):
+        original_entries=[entry for entry in occurrences(claim['assertion'],references) if entry['role']=='quantity']
+        present_entries=[entry for entry in occurrences(rendered,references) if entry['role']=='quantity']
+        for entry in original_entries:
+            if entry['unit'] is not None and any(item['text']==entry['text'] for item in present_entries) and not any(item['text']==entry['text'] and item['unit']==entry['unit'] for item in present_entries):
                 issues.append(issue('METRIC_UNIT_MISSING','A source numerical unit is absent or changed in selected wording',claim['id']))
+
     return issues
 
 

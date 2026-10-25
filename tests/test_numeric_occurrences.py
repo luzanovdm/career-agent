@@ -53,7 +53,9 @@ class NumericOccurrenceTests(unittest.TestCase):
         text='At 1inch. Managed 1 engineer.'
         start=text.index('1inch')
         review=dict(self.review,entity_spans=[dict(slot='message',start=start,end=start+len('1inch'),text='1inch',company_id=self.entity['id'])])
-        issues,audit=self.check(text,review=review)
+        claim=dict(id='claim_employer',assertion='At 1inch.',meaning='At 1inch.',confirmation='confirmed',disclosure='allowed',contradicted=False)
+        review=dict(review,claim_spans=[dict(claim_id=claim['id'],text='At 1inch.')],coverage=[dict(claim_id=claim['id'],disposition='included')])
+        issues,audit=self.check(text,claims=[claim],review=review)
         self.assertEqual(['reference','quantity'],[entry['role'] for entry in audit['occurrences']])
         self.assertEqual(['1'],[entry['token'] for entry in issues if entry['code']=='UNMATCHED_NUMBER'])
 
@@ -85,6 +87,36 @@ class NumericOccurrenceTests(unittest.TestCase):
         issues,_=self.check('Managed 48123456789 engineers.',answers=[answer])
         self.assertIn('UNMATCHED_NUMBER',{entry['code'] for entry in issues})
 
+    def test_unknown_measurements_currencies_periods_and_prefixes_never_become_entities(self):
+        tokens=['500PLN','100s','25kg','3months','19quux','6weeks','4days','200JPY','250CHF','USD500','JPY100','kg25','ms100','12°C']
+        self.source['excerpt']='A different product costs 500PLN and weighs 25kg; its warranty is 3months. Other measurements: '+', '.join(tokens)+'.'
+        for token in tokens:
+            with self.subTest(token=token),self.assertRaises(CareerError):
+                self.check('I earned '+token+'.',review=dict(self.review,entity_refs=[dict(text=token,source_id=self.source['id'])]))
+        self.assertTrue(all(row['role']=='quantity' and row['unit'] for row in occurrences('500PLN 100s 25kg 3months 19quux USD500 kg25')))
+
+    def test_plain_literal_in_a_source_is_not_named_entity_evidence(self):
+        self.source['excerpt']='A document mentions Foo7, but gives no naming assertion or entity identity.'
+        with self.assertRaises(CareerError) as caught:self.check('Foo7.',review=dict(self.review,entity_refs=[dict(text='Foo7',source_id=self.source['id'])]))
+        self.assertEqual('ENTITY_REFERENCE_UNVERIFIED',caught.exception.code)
+        self.source['excerpt']='Named product: Foo7.'
+        self.assertFalse(self.check('Foo7.',review=dict(self.review,entity_refs=[dict(text='Foo7',source_id=self.source['id'])]))[0])
+
+    def test_one_normalizer_rejects_unit_changes_and_accepts_supported_aliases(self):
+        for original,rendered,accepted in [('Earned 100 PLN.','Earned 100 JPY.',False),('Moved 25kg.','Moved 25g.',False),('Worked 3months.','Worked 3weeks.',False),('Waited 100s.','Waited 100ms.',False),('Moved 25quux.','Moved 25otherunit.',False),('Improved 25%.','Improved 25percent.',True),('Earned 100 USD.','Earned $100.',True)]:
+            claim=dict(id='claim_unit',assertion=original,meaning=original,confirmation='confirmed',disclosure='allowed',contradicted=False)
+            review=dict(self.review,claim_spans=[dict(claim_id=claim['id'],text=rendered)],coverage=[dict(claim_id=claim['id'],disposition='included')])
+            with self.subTest(original=original,rendered=rendered):
+                issues,_=self.check(rendered,claims=[claim],review=review)
+                self.assertEqual(accepted,not issues,issues)
+
+    def test_documented_named_software_compound_confirms_the_real_d3_pattern(self):
+        self.source['excerpt']='A technical article documents actual Qwik/D3 interactive web game. Another product costs 500PLN.'
+        review=dict(self.review,entity_refs=[dict(text='D3',source_id=self.source['id'])])
+        self.assertFalse(self.check('About your Qwik/D3 interfaces.',review=review)[0])
+        issues,_=self.check('About D3. I earned 500PLN in 3months while handling 25kg.',review=review)
+        self.assertEqual(['500','3','25'],[row['token'] for row in issues if row['code']=='UNMATCHED_NUMBER'])
+
     def test_scalar_answer_authority_is_bound_to_an_exact_field_span(self):
         answer=dict(id='answer_pay',meaning='compensation.external.salary',disposition='answered',value='5000',units='{"currency":"USD"}')
         text='Expected 5000 USD. Managed 5000 people.'
@@ -96,7 +128,7 @@ class NumericRepositoryTests(unittest.TestCase):
         self.temp=tempfile.TemporaryDirectory(prefix='career-numeric-fictional-');self.addCleanup(self.temp.cleanup);self.fx=Fixture(self.temp.name).seed()
     def test_facade_auto_resolves_company_and_binds_agent_source_references(self):
         f=self.fx;f.command('company.capture',id='company_one',name='Icons8',domain='icons.example')
-        f.command('source.capture',id='source_terms',locator='https://tools.example',excerpt='D3 n8n B2B are named technology/concept references.',observed_at='2026-10-25T00:00:00Z',readable=True)
+        f.command('source.capture',id='source_terms',locator='https://tools.example',excerpt='Named technologies and concepts: D3, n8n, B2B.',observed_at='2026-10-25T00:00:00Z',readable=True)
         person=f.tasks.query('contacts')['items'][0]
         f.command('contact.capture',id=person['id'],name=person['name'],company_id=person['company_id'],affiliation='current',relevance=person['relevance'],sources=[dict(source_id='source_one',axes=['identity','affiliation','relevance'],assessment='supports'),dict(source_id='source_terms',axes=['relevance'],assessment='supports')],route=dict(kind='profile',value='https://northstar.example/team/morgan',source_id='source_one'))
         f.command('packet.create',id='packet_contact',case_id='case_one',purpose='contact')
@@ -135,3 +167,13 @@ class NumericRepositoryTests(unittest.TestCase):
         review=dict(findings='Read scoped response.',limitations='Does not authorize reuse across tracks.',tone_findings='Direct.',claim_spans=[],coverage=[],answer_spans=[dict(answer_id=answer,text='Expected 5000 USD.')])
         with self.assertRaises(CareerError) as caught:f.command('packet.save',packet_id='packet_answer',documents=[dict(slot='message',text='Expected 5000 USD.')],used_claim_ids=[],answer_ids=[answer],review=review)
         self.assertEqual('UNSUPPORTED_ANSWER',caught.exception.code)
+
+    def test_facade_refuses_reviewers_unrelated_product_measurement_exceptions(self):
+        f=self.fx
+        f.command('source.capture',id='source_one',locator='https://northstar.example/team',excerpt='Morgan Example leads the product team. A different product costs 500PLN and weighs 25kg; its warranty is 3months.',observed_at='2026-10-25T00:00:00Z',readable=True)
+        f.command('packet.create',id='packet_measurements',case_id='case_one',purpose='contact')
+        before=f.tasks.context()['revision']
+        review=dict(findings='Compared exact words.',limitations='Other-product facts do not support applicant achievements.',tone_findings='Direct.',claim_spans=[],coverage=[],entity_refs=[dict(text=value,source_id='source_one') for value in ('500PLN','25kg','3months')])
+        with self.assertRaises(CareerError):f.command('packet.save',packet_id='packet_measurements',documents=[dict(slot='message',text='I earned 500PLN in 3months while handling 25kg.')],used_claim_ids=[],review=review)
+        self.assertEqual(before,f.tasks.context()['revision'])
+        with f.tasks.repository.open() as snap:self.assertIsNone(snap.get('packet','packet_measurements')['selected_version_id'])
