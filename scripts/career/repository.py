@@ -275,6 +275,14 @@ class Snapshot:
             if expiry and timestamp(expiry)>datetime.now(timezone.utc):boundaries.append(expiry)
         for answer in self.applicable_answers(case_id):
             if answer['valid_until'] and timestamp(answer['valid_until'])>datetime.now(timezone.utc):boundaries.append(answer['valid_until'])
+        # Future preferences must expire the projection before they become reusable.
+        from .policy import answer_scope_matches
+        tracks={r['track_id'] for r in self.rows('SELECT track_id FROM case_tracks WHERE case_id=?',(case_id,))}
+        for answer in self.rows("SELECT * FROM answers WHERE meaning LIKE 'writing.%'"):
+            public=self.public_answer(answer,tracks,case)
+            if public['scope_unresolved'] or public['response_state']=='pending' or not answer_scope_matches(public['scope'],tracks,case):continue
+            for key in ('valid_from','valid_until'):
+                if answer[key] and timestamp(answer[key])>datetime.now(timezone.utc):boundaries.append(answer[key])
         self._db.execute('INSERT INTO case_projection_cache VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(case_id) DO UPDATE SET column_key=excluded.column_key,closed=excluded.closed,search_text=excluded.search_text,person_id=excluded.person_id,qualified=excluded.qualified,body=excluded.body,expires_at=excluded.expires_at',
             (case_id,summary['column'],case['closed'],(case['title']+' '+summary['company']).casefold(),summary['contact']['id'] if summary['contact'] else None,int(bool(summary['contact'] and summary['contact']['qualified'])),canonical(summary),min(boundaries) if boundaries else None))
 
@@ -300,11 +308,12 @@ class Snapshot:
         value['scope_unresolved']=unresolved
         return value
 
-    def context(self,task=None,case_id=None,track_id=None,source_id=None,claim_id=None,answer_id=None,limit=25,cursor=None,_track_ids=None):
+    def context(self,task=None,case_id=None,track_id=None,source_id=None,claim_id=None,answer_id=None,limit=25,cursor=None,_track_ids=None,claim_scope='linked'):
         require(task in (None,'profile','contacts','packets','history','interview'),'INVALID_QUERY','Unknown task context')
         require(type(limit) is int and 1<=limit<=50,'LIMIT_EXCEEDED','Context limit must be 1..50')
         require(sum(bool(value) for value in (source_id,claim_id,answer_id))<=1,'INVALID_QUERY','Read one exact source/claim/answer at a time')
-        scope=dict(task=task,case_id=case_id,track_id=track_id,source_id=source_id,claim_id=claim_id,answer_id=answer_id,limit=limit,track_ids=sorted(_track_ids) if _track_ids is not None else None)
+        require(claim_scope in ('linked','bank'),'INVALID_QUERY','Unknown claim scope')
+        scope=dict(claim_scope=claim_scope,task=task,case_id=case_id,track_id=track_id,source_id=source_id,claim_id=claim_id,answer_id=answer_id,limit=limit,track_ids=sorted(_track_ids) if _track_ids is not None else None)
         offsets={key:0 for key in ('tracks','claims','sources','answers')}
         if cursor:
             try:value=json.loads(base64.urlsafe_b64decode(cursor.encode()))
@@ -345,7 +354,7 @@ class Snapshot:
             value=self.get('source',source_id);value['detail']=json.loads(value['detail']);result['source']=value
         if claim_id:result['claim']=self.public_claim(self.get('claim',claim_id))
         if answer_id:result['answer']=self.public_answer(self.get('answer',answer_id),selected_tracks,case)
-        claim_ids=set();source_ids=set();claim_scope='shared_bank'
+        claim_ids=set();source_ids=set();bank_requested=claim_scope=='bank';claim_scope='shared_bank'
         if selected_tracks:
             for row in self.rows('SELECT detail FROM tracks WHERE id IN(SELECT value FROM json_each(?))',(canonical(sorted(selected_tracks)),)):
                 claim_ids.update(json.loads(row['detail']).get('claim_ids',[]))
@@ -356,8 +365,12 @@ class Snapshot:
         if claim_ids:claim_scope='linked_context'
         if _track_ids==[]:claim_scope='empty_intent_scope'
         if task:
+            from .editorial import bank
+            result['claim_frontier']=bank(self,claim_ids) if _track_ids!=[] else dict(total=0,outside_linked_context=0,preview=[],scope='empty_intent_scope')
+            if bank_requested:claim_ids=set();claim_scope='confirmed_disclosable_bank'
             where=' WHERE 0' if _track_ids==[] else ' WHERE id IN(SELECT value FROM json_each(?))' if claim_ids else ''
-            args=[canonical(sorted(claim_ids))] if claim_ids else []
+            args=[canonical(sorted(claim_ids))] if claim_ids and where!=' WHERE 0' else []
+            if bank_requested and _track_ids!=[]:where=" WHERE confirmation='confirmed' AND disclosure='allowed' AND contradicted=0";args=[]
             totals['claims']=self.one('SELECT count(*) AS n FROM claims'+where,args)['n']
             collections['claims']=[self.public_claim(row) for row in self.rows('SELECT * FROM claims'+where+' ORDER BY id LIMIT ? OFFSET ?',[*args,limit,offsets['claims']])]
             if claim_ids:
@@ -564,9 +577,14 @@ class Snapshot:
             source=self.get('source',source_id)
             return source if reference_versions.get(source_id)==source['version'] else dict(source,readable=False)
         interview=[turn for slot in slots if slot['name']=='interview' for turn in project_interview_slot(slot,saved_dialogue_source)] if include_text else []
-        return dict(reported_sent=bool(self.one("SELECT 1 FROM activities WHERE packet_id=? AND version_id=? AND kind='sent' LIMIT 1",(packet_id,version_id))) if include_text else None,is_selected=version_id==packet['selected_version_id'],created_at=version['created_at'],ordinal=version['ordinal'],interview=interview,task_progress=progress,delivery=dict(retry_blocked=bool(unresolved),unresolved_activity_ids=[r['id'] for r in unresolved]),packet_id=packet_id,version_id=version_id,case_id=packet['case_id'],person_id=packet['person_id'],
-                    purpose=packet['purpose'],slots=slots,assessment=dict(saved=not any(entry['code']=='MATERIAL_CHANGED' for entry in issues),prepared=not issues,qualified=qualified,
-                    issues=issues,unknowns=[entry['message'] for entry in eligibility['unknown_details']],unknown_details=eligibility['unknown_details'],conditional=eligibility['conditional'],eligibility=eligibility['status'],limitations=[dict(code='REVIEW_LIMITATION',message=review['limitations'])] if review else []),review=dict(id=review['id'],findings=review['findings'],limitations=review['limitations'],tone_findings=json.loads(review['detail']).get('tone_findings'),numeric_audit=detail.get('numeric_audit') if include_text else None) if review else None,
+        from .editorial import binding,selected_hashes,assess
+        review_context=binding(self,packet_id,selected_hashes(self,version_id),json.loads(version['used_claim_ids']),json.loads(version['answer_ids']))
+        editorial=assess(json.loads(review['detail']) if review else None,review_context,any(slot['name']=='message' for slot in slots))
+        issues.extend(x for x in editorial['issues'] if x not in issues)
+        factual_pass=not any(not x['code'].startswith('EDITORIAL_') for x in issues)
+        return dict(review_context=review_context if include_text else None,reported_sent=bool(self.one("SELECT 1 FROM activities WHERE packet_id=? AND version_id=? AND kind='sent' LIMIT 1",(packet_id,version_id))) if include_text else None,is_selected=version_id==packet['selected_version_id'],created_at=version['created_at'],ordinal=version['ordinal'],interview=interview,task_progress=progress,delivery=dict(retry_blocked=bool(unresolved),unresolved_activity_ids=[r['id'] for r in unresolved]),packet_id=packet_id,version_id=version_id,case_id=packet['case_id'],person_id=packet['person_id'],
+                    purpose=packet['purpose'],slots=slots,assessment=dict(factual_pass=factual_pass,editorial_status=editorial['status'],saved=not any(entry['code']=='MATERIAL_CHANGED' for entry in issues),prepared=not issues,qualified=qualified,
+                    issues=issues,unknowns=[entry['message'] for entry in eligibility['unknown_details']],unknown_details=eligibility['unknown_details'],conditional=eligibility['conditional'],eligibility=eligibility['status'],limitations=[dict(code='REVIEW_LIMITATION',message=review['limitations'])] if review else []),review=dict(id=review['id'],findings=review['findings'],limitations=review['limitations'],tone_findings=json.loads(review['detail']).get('tone_findings'),editorial=detail.get('editorial'),numeric_audit=detail.get('numeric_audit') if include_text else None) if review else None,
                     version=packet['version'],used_claim_ids=json.loads(version['used_claim_ids']),answer_ids=json.loads(version['answer_ids']))
 
     def case_summary(self, case):
@@ -668,7 +686,10 @@ class Snapshot:
     def case_history(self,record_id,limit=50,cursor=None):
         self.get('case',record_id);scope=dict(case_id=record_id,collection='history');offset=self._paging(cursor,limit,scope)
         total=self.one('SELECT count(*) AS n FROM activities WHERE case_id=?',(record_id,))['n']
-        rows=self.rows('SELECT a.id,a.kind,a.occurred_at,a.evidence,COALESCE(a.packet_id,v.packet_id) AS packet_id,a.version_id FROM activities a LEFT JOIN packet_versions v ON v.id=a.version_id WHERE a.case_id=? ORDER BY a.occurred_at,a.id LIMIT ? OFFSET ?',(record_id,limit,offset))
+        rows=self.rows('SELECT a.id,a.kind,a.occurred_at,a.evidence,a.detail,COALESCE(a.packet_id,v.packet_id) AS packet_id,a.version_id,(SELECT o.sha256 FROM slots s JOIN objects o ON o.id=s.artifact_id WHERE s.version_id=a.version_id AND s.name="message") AS pinned_message_sha256 FROM activities a LEFT JOIN packet_versions v ON v.id=a.version_id WHERE a.case_id=? ORDER BY a.occurred_at,a.id LIMIT ? OFFSET ?',(record_id,limit,offset))
+        for row in rows:
+            detail=json.loads(row.pop('detail'));row['message_sha256']=detail.get('message_sha256');row['warnings']=detail.get('review_warnings',[])
+            if row['message_sha256'] and row['message_sha256']!=row['pinned_message_sha256'] and not any(i['code']=='SENT_PAYLOAD_MISMATCH' for i in row['warnings']):row['warnings'].append(dict(code='SENT_PAYLOAD_MISMATCH',message='Observed message bytes differ from the pinned message; the actual event remains retained'))
         return self.envelope(items=[dict(row,payload_unknown=row['kind']=='sent' and not row['version_id']) for row in rows],total=total,
             next_cursor=self._cursor(offset+limit,scope) if offset+limit<total else None)
 
@@ -1550,6 +1571,9 @@ def compile_command(snapshot, command):
         numeric_entities,numeric_sources=snapshot.numeric_context(packet['case_id'],claims,packet['person_id'])
         numeric_audit={}
         issues.extend(mechanical_review(data['documents'],claims,review,numeric_answers,numeric_entities,numeric_sources,numeric_audit))
+        from .editorial import binding,document_hashes,assess
+        editorial=assess(review,binding(snapshot,packet['id'],document_hashes(data['documents']),data['used_claim_ids'],data.get('answer_ids',[])),any(d['slot']=='message' for d in data['documents']))
+        issues.extend(editorial['issues'])
         for claim in claims:
             support=snapshot.one('SELECT 1 FROM claim_sources cs JOIN sources s ON s.id=cs.source_id WHERE cs.claim_id=? AND s.readable=1 AND length(trim(s.excerpt))>0 LIMIT 1',(claim['id'],))
             if not support:issues.append(issue('SOURCE_UNREADABLE','Used claim has no readable supporting observation; save actual confirming evidence separately',claim['id']))
@@ -1696,9 +1720,14 @@ def compile_command(snapshot, command):
             require(packet['case_id']==case['id'] and version['packet_id']==packet['id'],'SELECTION_CONFLICT','Actual report requires exact same-case packet bytes')
             if resolves:
                 require(old['packet_id']==data.get('packet_id') and old['version_id']==data.get('version_id'),'SELECTION_CONFLICT','Reconciliation must preserve original transmitted pins')
-            if data['kind']=='sent' and packet['selected_version_id']==data['version_id']:
-                selection=snapshot.selection(packet['id'])
+            if data['kind']=='sent':
+                selection=snapshot.selection(packet['id'],version_id=data['version_id'])
                 if not selection['assessment']['prepared']:issues.append(issue('SENT_UNREVIEWED','Actual report retained; selected packet was not currently prepared',case['id']))
+        if data.get('message_sha256') is not None:
+            require(isinstance(data['message_sha256'],str) and re.fullmatch('[a-f0-9]{64}',data['message_sha256']),'INVALID_INPUT','Observed message hash must be SHA256')
+            if data['kind'] in ('sent','uncertain'):
+                artifact=snapshot.one("SELECT o.sha256 FROM slots s JOIN objects o ON o.id=s.artifact_id WHERE s.version_id=? AND s.name='message'",(data.get('version_id'),))
+                if not artifact or artifact['sha256']!=data['message_sha256']:issues.append(issue('SENT_PAYLOAD_MISMATCH','Actual observed transmission retained; payload did not match the pinned reviewed message',case['id']))
         channel=data.get('channel')
         if channel:
             require(isinstance(channel,dict) and set(channel)=={'kind','value'},'INVALID_INPUT','Actual channel requires kind/value')
@@ -1713,7 +1742,7 @@ def compile_command(snapshot, command):
         if data['kind']=='bounce' and channel:
             sql('UPDATE channels SET suppressed=1 WHERE kind=? AND value=? AND person_id IN(SELECT id FROM persons WHERE company_id=?)',channel['kind'],channel['value'],case['company_id'])
         record_id=new_id('activity');saved.extend([record_id,case['id']]);kinds.extend(['activity','case'])
-        sql('INSERT INTO activities VALUES (?,?,?,?,?,?,?,?,?,?)',record_id,case['id'],data['kind'],data['occurred_at'],now(),data['evidence'],data.get('packet_id'),data.get('version_id'),resolves,canonical(dict(coverage=data.get('coverage'),channel=channel,related_activity_id=data.get('related_activity_id'))))
+        sql('INSERT INTO activities VALUES (?,?,?,?,?,?,?,?,?,?)',record_id,case['id'],data['kind'],data['occurred_at'],now(),data['evidence'],data.get('packet_id'),data.get('version_id'),resolves,canonical(dict(coverage=data.get('coverage'),channel=channel,related_activity_id=data.get('related_activity_id'),message_sha256=data.get('message_sha256'),review_warnings=[item for item in issues if item['code'] in ('SENT_PAYLOAD_MISMATCH','SENT_UNREVIEWED')])))
     elif intent=='permission.record':
         require(data['status'] in ('active','revoked','consumed'),'INVALID_INPUT','Invalid permission status')
         evidence(data['evidence']);text(data['purpose'],'purpose',200)
@@ -1754,6 +1783,16 @@ def compile_command(snapshot, command):
             candidates=snapshot.rows('SELECT c.id FROM cases c WHERE (? IS NULL OR c.company_id=?) AND (? IS NULL OR c.id=?) AND (? IS NULL OR EXISTS(SELECT 1 FROM case_tracks ct WHERE ct.case_id=c.id AND ct.track_id=?))',
                 (scope.get('company_id'),scope.get('company_id'),scope.get('case_id'),scope.get('case_id'),scope.get('track_id'),scope.get('track_id')))
             if data['meaning'].startswith('contact.') or data['meaning']=='compensation.floor':affected.update(r['id'] for r in candidates)
+    # Editorial selection considers the confirmed shared bank, not only an old packet's links.
+    bank_changed=False
+    if intent=='claim.save':
+        eligible=lambda row:row and row['confirmation']=='confirmed' and row['disclosure']=='allowed' and not row.get('contradicted',False)
+        bank_changed=bool(eligible(old) or eligible(data))
+    elif intent=='source.capture':
+        bank_changed=bool(snapshot.one("SELECT 1 FROM claim_sources cs JOIN claims c ON c.id=cs.claim_id WHERE cs.source_id=? AND c.confirmation='confirmed' AND c.disclosure='allowed' AND c.contradicted=0 LIMIT 1",(saved[0],)))
+    editorial_cases={r['case_id'] for r in snapshot.rows("SELECT DISTINCT p.case_id FROM packets p JOIN reviews r ON r.version_id=p.selected_version_id WHERE json_type(r.detail,'$.editorial')='object'")} if bank_changed or intent=='answer.save' else set()
+    if bank_changed:affected.update(editorial_cases)
+    if intent=='answer.save':affected.update(r['id'] for r in candidates if r['id'] in editorial_cases)
     affected.discard(None)
     return dict(statements=statements,objects=objects,saved_ids=saved,kinds=list(set(kinds)),issues=issues,
                 outcome='partial' if issues else 'satisfied',time_guards=guards,selected_packet_ids=selected_packets,affected_case_ids=list(affected))
@@ -1775,6 +1814,7 @@ def projection_policy_identity():
     import types
     from .policy import contact_issues,answer_scope_matches
     from .binary import contact_checks
+    from .editorial import assess,binding,bank,selected_hashes,POLICY
     def signature(code):
         constants=[]
         for value in code.co_consts:
@@ -1783,7 +1823,7 @@ def projection_policy_identity():
             elif isinstance(value,(str,int,float,bool,type(None),tuple)):constants.append(value)
             else:constants.append(type(value).__name__)
         return dict(bytecode=code.co_code.hex(),constants=constants,names=code.co_names)
-    return digest([signature(fn.__code__) for fn in (Snapshot.selection,Snapshot.case_summary,Snapshot.eligibility,Snapshot.readable_target,Snapshot.public_answer,Snapshot.applicable_answers,Snapshot.contact,contact_issues,answer_scope_matches,contact_checks)])
+    return digest([POLICY]+[signature(fn.__code__) for fn in (assess,binding,bank,selected_hashes,Snapshot.selection,Snapshot.case_summary,Snapshot.refresh_case_projection,Snapshot.eligibility,Snapshot.readable_target,Snapshot.public_answer,Snapshot.applicable_answers,Snapshot.contact,contact_issues,answer_scope_matches,contact_checks)])
 
 
 DELIVERY_INDEXES = {

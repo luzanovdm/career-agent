@@ -50,7 +50,7 @@ def mechanical_review(documents, claims, review, answers=(), entities=(), source
             issues.append(issue('CLAIM_NOT_REUSABLE','Used claim is unconfirmed, private or disputed',claim['id']))
     if not review:
         return issues + [issue('REVIEW_REQUIRED','Draft requires concrete fact and tone review')]
-    require(isinstance(review,dict) and {'findings','limitations','claim_spans','tone_findings','coverage'} <= set(review) <= {'findings','limitations','claim_spans','tone_findings','coverage','base_coverage_version_id','entity_spans','entity_refs','answer_spans'},
+    require(isinstance(review,dict) and {'findings','limitations','claim_spans','tone_findings','coverage'} <= set(review) <= {'findings','limitations','claim_spans','tone_findings','coverage','base_coverage_version_id','entity_spans','entity_refs','answer_spans','editorial'},
             'INVALID_REVIEW','Review requires findings, limitations, claim_spans, tone_findings and coverage')
     require(review['findings'] and review['tone_findings'] and review['limitations'], 'INVALID_REVIEW','Review must report actual findings and limits')
     mapped = set()

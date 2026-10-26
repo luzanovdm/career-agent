@@ -16,10 +16,17 @@ from career.policy import resolve_policy
 
 
 class Fixture:
-    def __init__(self,root):
+    def __init__(self,root,editorial=True):
+        self.editorial=editorial
         self.root=Path(root);Repository.initialize(root,'Alex Example');self.tasks=Tasks(root);self.serial=0
 
     def command(self,intent,**data):
+        # Structural fixture attestation only, never evidence of writing quality.
+        # Behavioral fixtures use real agent text/review and are evaluated separately.
+        if self.editorial and intent=='packet.save' and data.get('review') and 'editorial' not in data['review']:
+            value={k:data[k] for k in ('packet_id','documents','used_claim_ids','answer_ids') if k in data}
+            bound=self.tasks.query('review-context',input=value)
+            data=copy.deepcopy(data);data['review']['editorial']=dict(argument='Synthetic fixture targets the documented workflow contribution.',decision='approved',findings='Plumbing fixture attestation; this test does not rate prose.',binding=bound['binding'])
         self.serial+=1
         return self.tasks.command(dict(request_id='fictional_'+str(self.serial),expected_revision=self.tasks.context()['revision'],intent=intent,input=data))
 

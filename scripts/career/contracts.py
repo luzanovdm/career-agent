@@ -6,7 +6,7 @@ import re
 
 FORMAT = 'career-agent.workspace/1'
 PROTOCOL = 'career-agent.local/1'
-VERSION = '1.0.2'
+VERSION = '1.0.3'
 MAX_ITEMS = 100
 
 
@@ -92,7 +92,7 @@ SCHEMAS = {
     'packet.select': (['packet_id', 'version_id'], []),
     'artifact.attach': (['packet_id','slot','input_id','source_artifact_id','extension'], []),
     'batch.save': (['task', 'requested_count', 'count_unit', 'track_ids', 'criterion', 'selected_ids', 'required_outputs'], ['id', 'budget','predicate','parent_id']),
-    'activity.record': (['case_id', 'kind', 'occurred_at', 'evidence'], ['packet_id', 'version_id', 'resolves_activity_id', 'coverage','channel','related_activity_id']),
+    'activity.record': (['case_id', 'kind', 'occurred_at', 'evidence'], ['packet_id', 'version_id', 'resolves_activity_id', 'coverage','channel','related_activity_id','message_sha256']),
     'permission.record': (['purpose', 'scope', 'evidence', 'status'], ['id', 'expires_at', 'one_time']),
     'research.control': (['status', 'scope', 'evidence'], ['expires_at']),
 }

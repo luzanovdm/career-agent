@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.3
+
+- Choose reader-specific arguments from the verified claim bank and later corrections; retain voice, attribution and useful non-numeric evidence without a universal message template.
+- Separate factual and editorial judgments and bind them to exact content/target/evidence. Add bounded unlinked-claim discovery and read-only review-context/handoff checks; no text score, sender or permission grant.
+- Preserve actual transmission/hash mismatches in readable history, block unresolved-outcome handoff, and retain old immutable drafts/reviews without automatic editorial approval.
+
+
 ## 1.0.2
 
 - Resolve numeric identifiers from canonical identity and agent-declared scoped source references instead of hardcoded brand exceptions. Validate individual occurrences and retain measurement/count/unit distinctions.

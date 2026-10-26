@@ -582,10 +582,19 @@ function Materials({
       )}
       {selection.review && (
         <Disclosure title={t("review.findings")}>
-          <h3>{t("review.findings")}</h3>
+          <h3>{t("review.factualFindings")}</h3>
           <p>{String(selection.review.findings ?? "")}</p>
           {Boolean(selection.review.tone_findings) && (
             <p>{String(selection.review.tone_findings)}</p>
+          )}
+          <h3>{t("review.editorialFindings")}</h3>
+          <p>{t(`editorial.${selection.assessment.editorial_status ?? "not_recorded"}`)}</p>
+          {selection.review.editorial && (
+            <>
+              <h4>{t("review.argument")}</h4>
+              <p>{selection.review.editorial.argument}</p>
+              <p>{selection.review.editorial.findings}</p>
+            </>
           )}
           <h3>{t("review.limitations")}</h3>
           <p>{String(selection.review.limitations ?? "")}</p>
@@ -722,6 +731,13 @@ function History({
             <strong>{t(`activity.${item.kind}`)}</strong>{" "}
             <time dateTime={item.occurred_at}>{date(item.occurred_at)}</time>
             <p>{item.evidence}</p>
+            {item.warnings?.map((warning, index) => <p key={index}>{issueText(warning)}</p>)}
+            {item.message_sha256 && (
+              <Disclosure title={t("history.payloadEvidence")}>
+                <p>{t("history.observedPayload")}: <code>{item.message_sha256}</code></p>
+                {item.pinned_message_sha256 && <p>{t("history.pinnedPayload")}: <code>{item.pinned_message_sha256}</code></p>}
+              </Disclosure>
+            )}
             {item.version_id && item.packet_id ? (
               <Button
                 onPress={() => onVersion(item.packet_id!, item.version_id)}
