@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.5 (candidate; not published)
+## 1.0.5
 
 - Recognize only exact source-bound HTTP(S) URL spans as references; numeric quantities outside the URL still require independent evidence.
 - Select an evidenced company mailbox through the existing case owner, without invented employees. Share endpoint suppression, uncertain outcomes and exact recipient checks across person/company representations.
