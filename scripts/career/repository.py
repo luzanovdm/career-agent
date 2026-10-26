@@ -544,11 +544,13 @@ class Snapshot:
             slots.append(dict(name=slot['name'],artifact_id=artifact['id'],sha256=artifact['sha256'],media_type=artifact['media_type'],
                               text=body,download_url='/api/v1/artifacts/'+artifact['id']+'/download'))
         review = self.one('SELECT * FROM reviews WHERE version_id=?',(version_id,))
+        from .binary import CONTACT_CODES
         if not review:
             issues.append(issue('REVIEW_REQUIRED','Selected draft requires fact and tone review'))
         else:
             detail = json.loads(review['detail'])
-            issues.extend(detail.get('issues',[]))
+            # Contact disclosure is a current projection; immutable old reviews stay intact.
+            issues.extend(row for row in detail.get('issues',[]) if row.get('code') not in CONTACT_CODES)
             from .numeric import POLICY as NUMERIC_POLICY
             audit=detail.get('numeric_audit');saved_policy=audit.get('policy') if isinstance(audit,dict) else None
             if saved_policy!=NUMERIC_POLICY:
@@ -580,28 +582,30 @@ class Snapshot:
             if not required<=names:
                 issues.append(issue('PACKET_INCOMPLETE','Missing required slots: '+', '.join(sorted(required-names))))
         from .binary import contact_checks
-        if include_text or self.applicable_answers(case['id']):
-            if not include_text:
-                for slot in slots:
-                    try:artifact,path=self.object(slot['artifact_id'])
-                    except CareerError as error:
-                        if error.code=='MATERIAL_CHANGED':continue
-                        raise
-                    slot['text']=path.read_text() if artifact['media_type'] in ('text/markdown','text/plain') else None
-            documents=[]
+        # Current disclosure policy applies even to old reviews without answers/findings.
+        if not include_text:
             for slot in slots:
-                body=slot['text']
-                if body is None:
-                    extraction=self.one('SELECT extracted_artifact_id FROM extraction_receipts WHERE artifact_id=?',(slot['artifact_id'],))
-                    if extraction:
-                        try:
-                            _,path=self.object(extraction['extracted_artifact_id']);body=path.read_text()
-                        except CareerError as error:
-                            if include_text or error.code!='MATERIAL_CHANGED':raise
-                            issues.extend(error.issues)
-                    elif slot['name'] in ('resume','message','answers'):issues.append(issue('EXTRACTION_REQUIRED','Binary has no actual byte-bound extraction'))
-                if body is not None:documents.append(dict(slot=slot['name'],text=body))
-            issues.extend(contact_checks(documents,self.applicable_answers(case['id'])))
+                if slot['name'] not in ('resume','message','answers'):continue
+                try:artifact,path=self.object(slot['artifact_id'])
+                except CareerError as error:
+                    if error.code=='MATERIAL_CHANGED':continue
+                    raise
+                slot['text']=path.read_text() if artifact['media_type'] in ('text/markdown','text/plain') else None
+        documents=[]
+        for slot in slots:
+            if slot['name'] not in ('resume','message','answers'):continue
+            body=slot['text']
+            if body is None:
+                extraction=self.one('SELECT extracted_artifact_id FROM extraction_receipts WHERE artifact_id=?',(slot['artifact_id'],))
+                if extraction:
+                    try:
+                        _,path=self.object(extraction['extracted_artifact_id']);body=path.read_text()
+                    except CareerError as error:
+                        if include_text or error.code!='MATERIAL_CHANGED':raise
+                        issues.extend(error.issues)
+                elif slot['name'] in ('resume','message','answers'):issues.append(issue('EXTRACTION_REQUIRED','Binary has no actual byte-bound extraction'))
+            if body is not None:documents.append(dict(slot=slot['name'],text=body))
+        issues.extend(contact_checks(documents,self.applicable_answers(case['id'])))
         if json.loads(case['detail']).get('essential_policy')=='failed':
             issues.append(issue('ESSENTIAL_POLICY_FAILED','Confirmed essential policy prevents suitable-case credit'))
         unresolved=self.rows('SELECT a.id FROM activities a WHERE a.case_id=? AND a.kind="uncertain" AND NOT EXISTS(SELECT 1 FROM activities r WHERE r.resolves_activity_id=a.id) UNION SELECT a.id FROM packets p JOIN activities a ON a.packet_id=p.id WHERE p.person_id=? AND a.kind="uncertain" AND NOT EXISTS(SELECT 1 FROM activities r WHERE r.resolves_activity_id=a.id)',(packet['case_id'],packet['person_id']))
@@ -1724,7 +1728,7 @@ def compile_command(snapshot, command):
         require(staged.is_file() and staged.stat().st_size<=25*1024*1024,'INPUT_MISSING','Staged binary missing or too large')
         extracted,extractor=extract_binary(staged,data['extension']);check_conversion(source.read_text(),extracted)
         issues.extend(contact_checks([dict(slot=data['slot'],text=extracted)],snapshot.applicable_answers(packet['case_id'])))
-        require(not issues,'CONTACT_DISCLOSURE_BLOCKED','Converted bytes conflict with current contact/disclosure choice')
+        if issues:raise CareerError('CONTACT_DISCLOSURE_BLOCKED','Converted bytes conflict with current contact/disclosure choice',issues=issues)
         binary=add_object(staged.read_bytes(),data['extension'],'application/pdf' if data['extension']=='pdf' else 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
         extracted_object=add_object(extracted.encode(),'txt','text/plain')
         sql('INSERT OR IGNORE INTO extraction_receipts VALUES (?,?,?,?,?)',binary['id'],artifact['id'],extractor,extracted_object['id'],binary['sha256'])
@@ -1895,7 +1899,7 @@ def projection_policy_identity():
     """Fingerprint loaded policy code without installation paths or unrelated modules."""
     import types
     from .policy import contact_issues,answer_scope_matches
-    from .binary import contact_checks
+    from .binary import CONTACT_POLICY,contact_checks,phone_occurrences,calendar_period
     from .editorial import assess,binding,bank,selected_hashes,POLICY
     from .numeric import POLICY as NUMERIC_POLICY
     def signature(code):
@@ -1906,7 +1910,7 @@ def projection_policy_identity():
             elif isinstance(value,(str,int,float,bool,type(None),tuple)):constants.append(value)
             else:constants.append(type(value).__name__)
         return dict(bytecode=code.co_code.hex(),constants=constants,names=code.co_names)
-    return digest([POLICY,NUMERIC_POLICY]+[signature(fn.__code__) for fn in (assess,binding,bank,selected_hashes,Snapshot.selection,Snapshot.case_summary,Snapshot.refresh_case_projection,Snapshot.eligibility,Snapshot.readable_target,Snapshot.public_answer,Snapshot.applicable_answers,Snapshot.contact,contact_issues,answer_scope_matches,contact_checks)])
+    return digest([POLICY,NUMERIC_POLICY,CONTACT_POLICY]+[signature(fn.__code__) for fn in (assess,binding,bank,selected_hashes,Snapshot.selection,Snapshot.case_summary,Snapshot.refresh_case_projection,Snapshot.eligibility,Snapshot.readable_target,Snapshot.public_answer,Snapshot.applicable_answers,Snapshot.contact,contact_issues,answer_scope_matches,contact_checks,phone_occurrences,calendar_period)])
 
 
 DELIVERY_INDEXES = {
