@@ -275,6 +275,14 @@ class Snapshot:
             if expiry and timestamp(expiry)>datetime.now(timezone.utc):boundaries.append(expiry)
         for answer in self.applicable_answers(case_id):
             if answer['valid_until'] and timestamp(answer['valid_until'])>datetime.now(timezone.utc):boundaries.append(answer['valid_until'])
+        # Future preferences must expire the projection before they become reusable.
+        from .policy import answer_scope_matches
+        tracks={r['track_id'] for r in self.rows('SELECT track_id FROM case_tracks WHERE case_id=?',(case_id,))}
+        for answer in self.rows("SELECT * FROM answers WHERE meaning LIKE 'writing.%'"):
+            public=self.public_answer(answer,tracks,case)
+            if public['scope_unresolved'] or public['response_state']=='pending' or not answer_scope_matches(public['scope'],tracks,case):continue
+            for key in ('valid_from','valid_until'):
+                if answer[key] and timestamp(answer[key])>datetime.now(timezone.utc):boundaries.append(answer[key])
         self._db.execute('INSERT INTO case_projection_cache VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(case_id) DO UPDATE SET column_key=excluded.column_key,closed=excluded.closed,search_text=excluded.search_text,person_id=excluded.person_id,qualified=excluded.qualified,body=excluded.body,expires_at=excluded.expires_at',
             (case_id,summary['column'],case['closed'],(case['title']+' '+summary['company']).casefold(),summary['contact']['id'] if summary['contact'] else None,int(bool(summary['contact'] and summary['contact']['qualified'])),canonical(summary),min(boundaries) if boundaries else None))
 
@@ -1815,7 +1823,7 @@ def projection_policy_identity():
             elif isinstance(value,(str,int,float,bool,type(None),tuple)):constants.append(value)
             else:constants.append(type(value).__name__)
         return dict(bytecode=code.co_code.hex(),constants=constants,names=code.co_names)
-    return digest([POLICY]+[signature(fn.__code__) for fn in (assess,binding,bank,selected_hashes,Snapshot.selection,Snapshot.case_summary,Snapshot.eligibility,Snapshot.readable_target,Snapshot.public_answer,Snapshot.applicable_answers,Snapshot.contact,contact_issues,answer_scope_matches,contact_checks)])
+    return digest([POLICY]+[signature(fn.__code__) for fn in (assess,binding,bank,selected_hashes,Snapshot.selection,Snapshot.case_summary,Snapshot.refresh_case_projection,Snapshot.eligibility,Snapshot.readable_target,Snapshot.public_answer,Snapshot.applicable_answers,Snapshot.contact,contact_issues,answer_scope_matches,contact_checks)])
 
 
 DELIVERY_INDEXES = {

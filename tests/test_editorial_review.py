@@ -1,6 +1,8 @@
 """Mechanical scope/attestation tests. Synthetic prose here is not a quality benchmark."""
 import json
 import unittest
+from datetime import datetime,timezone
+from unittest.mock import patch
 from test_runtime_1 import Fixture
 from tempfile import TemporaryDirectory
 from career.contracts import CareerError,digest
@@ -77,3 +79,26 @@ class EditorialTests(unittest.TestCase):
     def test_explicit_empty_intent_scope_never_exposes_bank_candidates(self):
         c=self.fx.tasks.context(task='packets',case_id='case_one',_track_ids=[],claim_scope='bank')
         self.assertEqual([],c['evidence']['claims']);self.assertEqual(0,c['claim_frontier']['total']);self.assertEqual([],c['claim_frontier']['preview'])
+
+    def assert_writing_boundary(self,boundary):
+        clock=[datetime(2030,1,1,tzinfo=timezone.utc)]
+        class Clock(datetime):
+            @classmethod
+            def now(cls,tz=None):return clock[0].astimezone(tz) if tz else clock[0].replace(tzinfo=None)
+        with patch('career.repository.datetime',Clock):
+            self.fx.command('answer.save',meaning='writing.preference',scope=dict(case_id='case_one',purpose='external'),units={},disposition='answered',value='Use a short direct request.',evidence='Synthetic time-scoped user preference.',**{boundary:'2030-01-02T00:00:00Z'})
+            data=self.payload();self.fx.command('packet.save',**data,review=self.review(data))
+            self.assertTrue(self.fx.tasks.query('selection',record_id='packet_one')['assessment']['prepared'])
+            self.assertEqual(1,self.fx.tasks.query('board')['counts']['columns']['ready'])
+            with self.fx.tasks.repository.open() as snap:self.assertEqual(datetime(2030,1,2,tzinfo=timezone.utc),datetime.fromisoformat(snap.one("SELECT expires_at FROM case_projection_cache WHERE case_id='case_one'")['expires_at'].replace('Z','+00:00')))
+            clock[0]=datetime(2030,1,2,tzinfo=timezone.utc)
+            selected=self.fx.tasks.query('selection',record_id='packet_one')
+            self.assertFalse(selected['assessment']['prepared']);self.assertEqual('stale',selected['assessment']['editorial_status'])
+            self.assertEqual(0,self.fx.tasks.query('board')['counts']['columns']['ready'])
+            self.assertFalse(self.fx.tasks.query('cases')['items'][0]['prepared'])
+
+    def test_writing_preference_expiry_invalidates_cached_readiness(self):
+        self.assert_writing_boundary('valid_until')
+
+    def test_future_writing_preference_start_invalidates_cached_readiness(self):
+        self.assert_writing_boundary('valid_from')

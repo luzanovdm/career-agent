@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Actual offline archive acceptance with bundled Python and empty PATH. Fictional only."""
 import argparse
+import copy
 import hashlib
 import http.client as http_client
 import json
@@ -69,6 +70,7 @@ def run(archive,expected,output):
             revision=context['revision'];serial=0
             def command(intent,**data):
                 nonlocal revision,serial
+                data=copy.deepcopy(data)
                 # Structural integration fixture, not an assessment of literary quality.
                 if intent=='packet.save' and data.get('review') and 'editorial' not in data['review']:
                     value={k:data[k] for k in ('packet_id','documents','used_claim_ids','answer_ids') if k in data}
