@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.4
+
+- Admit exact source-backed named-employer/project occurrences that resemble units, without changing the target company or allowing global numeric exceptions. Require scoped naming evidence and independently grounded claim support.
+- Reject measurement markers outside explicit entity spans for both source and canonical company routes; retain unrelated quantities and immutable prior versions.
+- Clarify original source lineage: agent summaries/drafts do not renew user confirmation, dates or disclosure permission; supported older claims remain reusable within scope.
+
 ## 1.0.3
 
 - Choose reader-specific arguments from the verified claim bank and later corrections; retain voice, attribution and useful non-numeric evidence without a universal message template.

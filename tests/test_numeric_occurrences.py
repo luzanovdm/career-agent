@@ -59,6 +59,46 @@ class NumericOccurrenceTests(unittest.TestCase):
         self.assertEqual(['reference','quantity'],[entry['role'] for entry in audit['occurrences']])
         self.assertEqual(['1'],[entry['token'] for entry in issues if entry['code']=='UNMATCHED_NUMBER'])
 
+    def test_source_backed_previous_company_name_uses_exact_grounded_occurrence(self):
+        for name,number in (('7furlong','7'),('1inch','1')):
+            self.source['excerpt']=name+' is a company. Alex Example worked at '+name+'.'
+            wording='At '+name+' I documented the handover.'
+            claim=dict(id='claim_previous',assertion=wording,meaning=wording,confirmation='confirmed',disclosure='allowed',contradicted=False)
+            start=wording.index(name)
+            review=dict(findings='Compared source identity and exact employment wording.',limitations='Role matching is not semantic entailment.',tone_findings='Fictional fixture.',claim_spans=[dict(claim_id=claim['id'],text=wording)],coverage=[dict(claim_id=claim['id'],disposition='included')],entity_spans=[dict(slot='message',start=start,end=start+len(name),text=name,source_id=self.source['id'])])
+            with self.subTest(name=name):
+                issues,audit=self.check(wording+' Managed '+number+' engineers.',[claim],review)
+                self.assertEqual(['reference','quantity'],[entry['role'] for entry in audit['occurrences']])
+                self.assertEqual('source',audit['occurrences'][0]['reference']['kind'])
+                self.assertIsNone(audit['occurrences'][0]['unit'])
+                self.assertEqual([number],[entry['token'] for entry in issues if entry['code']=='UNMATCHED_NUMBER'])
+
+    def test_unit_shaped_entity_cannot_hide_external_measurement_markers(self):
+        self.entity['name']='7inch';self.source['excerpt']='7inch is a company. Alex Example worked at 7inch.'
+        for identity in (dict(company_id=self.entity['id']),dict(source_id=self.source['id'])):
+            for text in ('At 7inch%.','At $7inch.','At 7inch‰.','At 7inch×.','At (7inch)%.','At 7inch)₴.','At ₴(7inch).','At 7inch USD.','At 7inch (kg).','At %7inch.','At×7inch.'):
+                claim=dict(id='claim_name',assertion=text,meaning=text,confirmation='confirmed',disclosure='allowed',contradicted=False)
+                start=text.index('7inch');review=dict(findings='Compared the actual fictional context.',limitations='No semantic truth guarantee.',tone_findings='Fixture.',claim_spans=[dict(claim_id=claim['id'],text=text)],coverage=[dict(claim_id=claim['id'],disposition='included')],entity_spans=[dict(slot='message',start=start,end=start+5,text='7inch',**identity)])
+                with self.subTest(identity=identity,text=text),self.assertRaises(CareerError):self.check(text,[claim],review)
+
+    def test_source_entity_span_does_not_relabel_real_amount_period_weight_or_length(self):
+        for wording,token in [('Earned 500PLN.','500PLN'),('Worked 3months.','3months'),('Moved 25kg.','25kg'),('Cut 12cm.','12cm'),('Earned 100rupees.','100rupees'),('Moved 19quux.','19quux')]:
+            self.source['excerpt']='7furlong is a company. Recorded actual measurement: '+wording
+            claim=dict(id='claim_measure',assertion=wording,meaning=wording,confirmation='confirmed',disclosure='allowed',contradicted=False)
+            base=dict(findings='Compared exact source wording.',limitations='Identity declarations do not reinterpret measurements.',tone_findings='Fixture.',claim_spans=[dict(claim_id=claim['id'],text=wording)],coverage=[dict(claim_id=claim['id'],disposition='included')])
+            issues,audit=self.check(wording,[claim],base);self.assertFalse(issues);self.assertEqual('quantity',audit['occurrences'][0]['role']);self.assertIsNotNone(audit['occurrences'][0]['unit'])
+            start=wording.index(token);review=dict(base,entity_spans=[dict(slot='message',start=start,end=start+len(token),text=token,source_id=self.source['id'])])
+            with self.subTest(token=token),self.assertRaises(CareerError):self.check(wording,[claim],review)
+
+    def test_source_unit_shaped_name_needs_identity_and_independent_claim_support(self):
+        text='At 7furlong.';start=text.index('7furlong')
+        review=dict(findings='Exact fictional source comparison.',limitations='No inference from a bare literal.',tone_findings='Fixture.',claim_spans=[],coverage=[],entity_spans=[dict(slot='message',start=start,end=start+8,text='7furlong',source_id=self.source['id'])])
+        self.source['excerpt']='An unrelated document merely mentions 7furlong.'
+        with self.assertRaises(CareerError):self.check(text,review=review)
+        self.source['excerpt']='7furlong is a company.'
+        with self.assertRaises(CareerError) as caught:self.check(text,review=review)
+        self.assertIn('independently grounded claim support',str(caught.exception))
+
     def test_real_signed_decimal_percent_time_and_count_metrics_remain_checked(self):
         wording='Managed 8 engineers for 3 years; reduced errors с3,2% до1,8% in 100ms. Shift from-3.2 to+1.8.'
         claim=dict(id='claim_metric',assertion=wording,meaning=wording,confirmation='confirmed',disclosure='allowed',contradicted=False)
@@ -156,6 +196,32 @@ class NumericOccurrenceTests(unittest.TestCase):
 class NumericRepositoryTests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory(prefix='career-numeric-fictional-');self.addCleanup(self.temp.cleanup);self.fx=Fixture(self.temp.name).seed()
+
+    def test_facade_source_span_for_previous_company_preserves_bytes_primary_and_history(self):
+        f=self.fx;wording='At 7furlong I documented the handover.';start=wording.index('7furlong')
+        f.command('source.capture',id='source_original',locator='https://evidence.example/original.pdf',excerpt='Alex Example worked at 7furlong and documented the handover.',observed_at='2026-10-26T00:00:00Z',readable=True)
+        f.command('source.capture',id='source_identity',locator='https://7furlong.example/about',excerpt='7furlong is a company.',observed_at='2026-10-26T00:00:00Z',readable=True)
+        f.command('claim.save',id='claim_previous',assertion=wording,meaning=wording,source_ids=['source_original','source_identity'],confirmation='confirmed',disclosure='allowed')
+        f.command('packet.create',id='packet_previous',case_id='case_one',purpose='contact')
+        review=dict(findings='Compared original career evidence and company identity.',limitations='No semantic entailment guarantee.',tone_findings='Synthetic fixture.',claim_spans=[dict(claim_id='claim_previous',text=wording)],coverage=[dict(claim_id='claim_previous',disposition='included')])
+        data=dict(packet_id='packet_previous',documents=[dict(slot='message',text=wording)],used_claim_ids=['claim_previous'])
+        f.command('packet.save',**data,review=review);old=f.tasks.query('selection',record_id='packet_previous')
+        f.command('packet.save',**data,review=dict(review,entity_spans=[dict(slot='message',start=start,end=start+8,text='7furlong',source_id='source_identity')]))
+        new=f.tasks.query('selection',record_id='packet_previous');self.assertTrue(new['assessment']['prepared']);self.assertEqual(old['slots'],new['slots']);self.assertNotEqual(old['version_id'],new['version_id'])
+        self.assertEqual('quantity',f.tasks.query('selection',record_id='packet_previous',version_id=old['version_id'])['review']['numeric_audit']['occurrences'][0]['role'])
+        self.assertEqual('reference',new['review']['numeric_audit']['occurrences'][0]['role'])
+        self.assertEqual('packet_one',f.tasks.query('case',record_id='case_one')['selection']['packet_id'])
+        with f.tasks.repository.open() as snap:self.assertIsNotNone(snap.one("SELECT 1 FROM dependencies WHERE version_id=? AND kind='source' AND record_id='source_identity' AND purpose='entity-reference'",(new['version_id'],)))
+        f.command('source.capture',id='source_identity',locator='https://7furlong.example/about',excerpt='Unavailable original identity.',observed_at='2026-10-27T00:00:00Z',readable=False)
+        self.assertFalse(f.tasks.query('selection',record_id='packet_previous')['assessment']['prepared'])
+
+    def test_facade_unscoped_source_span_is_atomic_refusal(self):
+        f=self.fx;f.command('source.capture',id='source_unrelated',locator='https://7furlong.example',excerpt='7furlong is a company.',observed_at='2026-10-26T00:00:00Z',readable=True)
+        f.command('packet.create',id='packet_unrelated',case_id='case_one',purpose='contact')
+        revision=f.tasks.context()['revision'];review=dict(findings='Fictional source isolation check.',limitations='Unlinked evidence is not admitted.',tone_findings='Fixture.',claim_spans=[],coverage=[],entity_spans=[dict(slot='message',start=0,end=8,text='7furlong',source_id='source_unrelated')])
+        with self.assertRaises(CareerError):f.command('packet.save',packet_id='packet_unrelated',documents=[dict(slot='message',text='7furlong')],used_claim_ids=[],review=review)
+        self.assertEqual(revision,f.tasks.context()['revision'])
+        with f.tasks.repository.open() as snap:self.assertEqual(0,snap.one("SELECT count(*) n FROM packet_versions WHERE packet_id='packet_unrelated'")['n'])
     def test_facade_auto_resolves_company_and_binds_agent_source_references(self):
         f=self.fx;f.command('company.capture',id='company_one',name='Icons8',domain='icons.example')
         f.command('source.capture',id='source_terms',locator='https://tools.example',excerpt='Named technologies and concepts: D3, n8n, B2B.',observed_at='2026-10-25T00:00:00Z',readable=True)

@@ -283,6 +283,22 @@ print(json.dumps(dict(status='passed',revision=revision)))
             check,_=cli('handoff-check',input=dict(packet_id='packet_numeric',version_id=selected['version_id'],documents=editorial_input['documents']),allowed=(0,3));assert not check['ready'] and not check['permission_granted']
             bank_context,_=cli('context','--task','profile','--claim-scope','bank','--limit','1');assert bank_context['claim_frontier']['total']>=1
             checks.append('Installed factual/editorial separation, exact bound judgment, bounded claim-bank discovery and blocked unready external handoff; no sender')
+            command('source.capture',id='source_past_original',locator='https://evidence.example/original.pdf',excerpt='Alex Example documented a handover while working at 1inch.',observed_at='2026-10-26T00:00:00Z',readable=True)
+            command('source.capture',id='source_past_identity',locator='https://1inch.example/about',excerpt='1inch is a company.',observed_at='2026-10-26T00:00:00Z',readable=True)
+            wording='At 1inch I documented the handover.'
+            command('claim.save',id='claim_past',assertion=wording,meaning=wording,source_ids=['source_past_original','source_past_identity'],confirmation='confirmed',disclosure='allowed')
+            command('packet.create',id='packet_past',case_id='case_installed',purpose='contact',person_id='person_taylor')
+            named_review=dict(findings='Compared original fictional employment and identity sources.',limitations='Token bindings do not prove semantic entailment.',tone_findings='Synthetic mechanical fixture.',claim_spans=[dict(claim_id='claim_past',text=wording)],coverage=[dict(claim_id='claim_past',disposition='included')],entity_spans=[dict(slot='message',start=3,end=8,text='1inch',source_id='source_past_identity')])
+            command('packet.save',packet_id='packet_past',documents=[dict(slot='message',text=wording)],used_claim_ids=['claim_past'],review=named_review)
+            past,_=cli('deliver','packet_past',allowed=(0,3));occurrence=past['review']['numeric_audit']['occurrences'][0]
+            assert past['assessment']['prepared'] and occurrence['role']=='reference' and occurrence['unit'] is None and occurrence['reference']['record_id']=='source_past_identity'
+            assert cli('query','case','--id','case_installed')[0]['selection']['packet_id']=='packet_taylor'
+            before_revision=revision;bad=wording.replace('1inch','1inch%');bad_review=dict(named_review,claim_spans=[dict(claim_id='claim_past',text=bad)])
+            request=dict(request_id='installed_outer_marker_refusal',expected_revision=revision,intent='packet.save',input=dict(packet_id='packet_past',documents=[dict(slot='message',text=bad)],used_claim_ids=['claim_past'],review=bad_review))
+            refused=subprocess.run([str(launcher),'command'],input=json.dumps(request),env=environment,cwd=parent,capture_output=True,text=True,timeout=30)
+            assert refused.returncode==2 and 'INVALID_REVIEW' in refused.stderr and cli('context')[0]['revision']==before_revision
+            assert cli('deliver','packet_past',allowed=(0,3))[0]['version_id']==past['version_id']
+            checks.append('Installed source-backed past-company unit-shaped name keeps target/primary and exact source proof; external percent refusal is atomic')
             failed_archive=parent/'fictional-failed-update.zip';failed_sha,failed_id=update_fixture(archive,failed_archive,fail_context=True)
             before_pointer=json.loads((workspace/'.career-agent/active.json').read_text())
             failed=subprocess.run([str(launcher),'app','update','--archive',str(failed_archive),'--sha256',failed_sha],capture_output=True,text=True,env=environment,cwd=parent,timeout=60)

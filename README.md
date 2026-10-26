@@ -1,12 +1,12 @@
-# Career Agent 1.0.3
+# Career Agent 1.0.4
 
 Career work through conversation, with an installed private workspace and an optional local React interface. Build a source-backed profile, explore several professions, find useful people and opportunities, prepare selected materials, reconcile application history, and practice interviews. The model supplies evidence, meaning and writing; the local tools validate and persist records. Nothing sends applications or messages automatically.
 
-The complete 1.0.3 platform archive is available from [the versioned release](https://github.com/luzanovdm/career-agent/releases/tag/v1.0.3). Only macOS arm64 has native clean-install acceptance evidence, on macOS 27.0.1. The declared macOS 11.0 minimum is untested; other platforms are not certified by this release. Existing private-workspace migration remains a separate, gated operation.
+The complete 1.0.4 platform archive is available from [the versioned release](https://github.com/luzanovdm/career-agent/releases/tag/v1.0.4). Only macOS arm64 has native clean-install acceptance evidence, on macOS 27.0.1. The declared macOS 11.0 minimum is untested; other platforms are not certified by this release. Existing private-workspace migration remains a separate, gated operation.
 
 ## Download and verify
 
-Use [the complete macOS arm64 archive](https://github.com/luzanovdm/career-agent/releases/download/v1.0.3/career-agent-1.0.3-macos-arm64.zip), with its detached RELEASE.json and SHA256SUMS from the same release. The ZIP SHA256 is `61a3b0823e0a04f082ca7acebbbb4c2bb1b416d8558c659b240a38b766659aa4`. Verify locally before extraction or execution; the included bootstrap checks every managed file. Follow the included installed skill's installation reference through an agent with safe local execution. Use a new private workspace; legacy conversion is never automatic. The source checkout and its historical helpers are not a personal installation. Root release.json uses the 1.0 release-index format; the retired pre-1.0 descriptor/updater is not a compatibility path.
+Use [the complete macOS arm64 archive](https://github.com/luzanovdm/career-agent/releases/download/v1.0.4/career-agent-1.0.4-macos-arm64.zip), with its detached RELEASE.json and SHA256SUMS from the same release. The ZIP SHA256 is `d82e01bfbf455eb97bdb20b0cb98a64ad2442e9b84ec803a8df5b3654251b98b`. Verify locally before extraction or execution; the included bootstrap checks every managed file. Follow the included installed skill's installation reference through an agent with safe local execution. Use a new private workspace; legacy conversion is never automatic. The source checkout and its historical helpers are not a personal installation. Root release.json uses the 1.0 release-index format; the retired pre-1.0 descriptor/updater is not a compatibility path.
 
 ## Use through your agent
 
