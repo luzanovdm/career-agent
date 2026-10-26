@@ -14,6 +14,7 @@ import {
   type Column,
 } from "../api/types";
 import { t, issueText } from "../app/i18n";
+import { RouteIdentity } from "./CaseRoute";
 import {
   Button,
   Check,
@@ -49,18 +50,7 @@ export function CaseCard({
         <strong>{item.title}</strong>
       </Button>
       <p className="card-person">
-        {item.contact?.name ?? t("cases.contactMissing")}
-        <span className="muted">
-          {" "}
-          ·{" "}
-          {t(
-            item.route === "person"
-              ? "cases.routePerson"
-              : item.route === "form"
-                ? "cases.routeForm"
-                : "cases.routeUnknown",
-          )}
-        </span>
+        <RouteIdentity item={item} />
       </p>
       <div className="tags">
         {showStage && (
@@ -170,7 +160,7 @@ export function Cases({
                     <small>{t(`cases.${item.kind}`)}</small>
                   </Cell>
                   <Cell>
-                    {item.contact?.name ?? t("cases.contactMissing")}
+                    <RouteIdentity item={item} />
                     <small>
                       {item.tracks.map((track) => track.name).join(", ")}
                     </small>

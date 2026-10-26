@@ -1,18 +1,18 @@
 {
   "format": "career-agent.release-index/1",
-  "version": "1.0.4",
-  "tag": "v1.0.4",
+  "version": "1.0.5",
+  "tag": "v1.0.5",
   "repository": "https://github.com/luzanovdm/career-agent",
   "installation": "Complete offline platform archive; source helpers are development-only.",
   "artifacts": [
     {
       "platform": "macos-arm64",
-      "archive": "career-agent-1.0.4-macos-arm64.zip",
-      "sha256": "386ba63e244f8184f0ab762cb74c97edb4d604f91af4315017065c45aab4f166",
-      "bytes": 22597904,
-      "release_id": "1.0.4-macos-arm64-98ab9e23378300bb",
+      "archive": "career-agent-1.0.5-macos-arm64.zip",
+      "sha256": "4b7b9a0bde43be7480d255a48cc3c3568f0a899bb31e4cb42d3598ded96e4708",
+      "bytes": 22602386,
+      "release_id": "1.0.5-macos-arm64-79e8da57d7411296",
       "manifest": "RELEASE.json",
-      "manifest_sha256": "c5edaf89ca5ba141accf29aa1f8b5cd16b443af6866c6215df606b10fbda490c",
+      "manifest_sha256": "2da00b183245bfea1be0a3075ca61ff1969b4d3842a0c7b4e57c00a377689a0a",
       "tested_os": "macOS 27.0.1 arm64",
       "declared_minimum_os": "11.0",
       "minimum_os_tested": false

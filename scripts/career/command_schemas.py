@@ -16,7 +16,7 @@ def shapes():
     policy=obj(dict(state=enum('inherit','known','no_preference','unknown'),value={}),['state'])
     route=obj(dict(kind=enum('profile','email','form','website'),value=dict(type='string',maxLength=4096),source_id=ID))
     coverage=obj(dict(claim_id=ID,disposition=enum('included','condensed','private','excluded','pending'),reason=TEXT),['claim_id','disposition'])
-    entity_span=dict(oneOf=[obj(dict(slot=enum('resume','message','answers'),start=dict(type='integer',minimum=0),end=dict(type='integer',minimum=1),text=TEXT,source_id=ID)),obj(dict(slot=enum('resume','message','answers'),start=dict(type='integer',minimum=0),end=dict(type='integer',minimum=1),text=TEXT,company_id=ID))])
+    entity_span=dict(description='Exact Unicode offsets: an evidenced alphanumeric name, or a complete HTTP(S) URL equal to a scoped readable source locator. Unit-shaped names require independent mapped claim support; use an exact span, never a global entity_refs exception. URL digits grant no quantity authority outside that span.',oneOf=[obj(dict(slot=enum('resume','message','answers'),start=dict(type='integer',minimum=0),end=dict(type='integer',minimum=1),text=TEXT,source_id=ID)),obj(dict(slot=enum('resume','message','answers'),start=dict(type='integer',minimum=0),end=dict(type='integer',minimum=1),text=TEXT,company_id=ID))])
     editorial=obj(dict(argument=dict(type='string',minLength=1,maxLength=8192),decision=enum('approved','revise','pending'),findings=dict(type='string',minLength=1,maxLength=8192),binding=dict(type='string',pattern='^[a-f0-9]{64}$')))
     review=obj(dict(editorial=editorial,entity_refs=array(obj(dict(text=dict(type='string',minLength=2,maxLength=128),source_id=ID))),entity_spans=array(entity_span),answer_spans=array(obj(dict(answer_id=ID,text=TEXT))),findings=TEXT,limitations=TEXT,tone_findings=TEXT,claim_spans=array(obj(dict(claim_id=ID,text=TEXT))),coverage=array(coverage),base_coverage_version_id=ID),['findings','limitations','tone_findings','claim_spans','coverage'])
     unknown=obj(dict(code=TEXT,subject=TEXT,message=TEXT,source_ids=IDS))
@@ -29,7 +29,8 @@ def descriptions():
         'claim.save':'Save verbatim assertion, interpreted meaning and source/disclosure evidence.',
         'track.save':'Save a career track and scoped policy overrides; explicit unknown does not inherit.',
         'answer.save':'Save a pending question or an actual scoped user response; they are distinct states.',
-        'case.capture':'Capture exact opportunity identity and track rationale; preserve conditional eligibility.',
+        'case.capture':'Capture exact opportunity identity and track rationale. Company mailbox route requires a personless case, canonical company domain and exact scoped public email evidence.',
+        'contact.suppress':'Suppress one known exact endpoint with actual evidence. Specify exactly one person_id or company_id; scope is not sending permission.',
         'packet.create':'Create an alternative or first primary packet without replacing a later primary implicitly.',
         'packet.save':'Save all selected text slots as immutable bytes; review fields describe actual source/span checks.',
         'batch.save':'Persist original job_search goal or a linked preliminary quota, never replace the original goal.',
@@ -53,7 +54,7 @@ def properties(intent):
         'track.save':dict(selected=dict(type='boolean'),policies=dict(type='object',additionalProperties=d['policy'])),
         'answer.save':dict(scope=d['scope'],units=dict(type='object'),value={},disposition=enum('answered','pending','unknown','confidential','declined','no_preference','omit'),response_state=enum('pending','provided'),evidence=dict(type='string',minLength=1,maxLength=8192)),
         'contact.capture':dict(affiliation=enum('current','unknown','conflicting','former'),sources=array(obj(dict(source_id=ID,axes=array(enum('identity','affiliation','relevance'),3),assessment=enum('supports','conflicts','unknown')))),route=dict(oneOf=[dict(type='null'),d['route']]),track_rationales=array(obj(dict(track_id=ID,rationale=TEXT,source_ids=IDS)))),
-        'case.capture':dict(kind=enum('vacancy','project','speculative'),route=enum('person','form','unknown'),tracks=array(obj(dict(id=ID,rationale=TEXT))),essential_policy=enum('unknown','passed','failed'),essential_unknowns=array(d['unknown'],25)),
+        'case.capture':dict(kind=enum('vacancy','project','speculative'),route=enum('person','company','form','unknown'),company_route=obj(dict(kind=enum('email'),value=dict(type='string',maxLength=320),source_id=ID)),tracks=array(obj(dict(id=ID,rationale=TEXT))),essential_policy=enum('unknown','passed','failed'),essential_unknowns=array(d['unknown'],25)),
         'packet.create':dict(purpose=enum('application','referral','contact','interview')),
         'packet.save':dict(documents=array(obj(dict(slot=enum('resume','message','dossier','answers','interview','notes'),text=dict(type='string',minLength=1,maxLength=262144))),6),review=d['review']),
         'artifact.attach':dict(slot=enum('resume','message','dossier','answers','interview','notes'),extension=enum('docx','pdf')),

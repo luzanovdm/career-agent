@@ -99,11 +99,7 @@ def handoff(snapshot,data):
     if data.get('recipient') is None:issues.append(issue('HANDOFF_RECIPIENT_MISMATCH','Actual intended recipient is required before handoff'))
     if data.get('recipient') is not None:
         recipient=data['recipient'];require(isinstance(recipient,dict) and set(recipient)=={'kind','value'},'INVALID_INPUT','Recipient needs exact kind/value')
-        contact=snapshot.contact(selection['person_id']) if selection['person_id'] else None
-        if contact:
-            matches=contact['qualified'] and contact['route'] and recipient=={k:contact['route'][k] for k in ('kind','value')}
-        else:
-            case=snapshot.get('case',selection['case_id']);opportunity=snapshot.get('opportunity',case['opportunity_id']) if case['opportunity_id'] else None
-            matches=case['route']=='form' and opportunity and recipient==dict(kind='form',value=opportunity['canonical_url'])
+        route=selection['selected_route']
+        matches=route and route['qualified'] and recipient=={k:route.get(k) for k in ('kind','value')}
         if not matches:issues.append(issue('HANDOFF_RECIPIENT_MISMATCH','Final recipient differs from the evidenced selected route'))
     return snapshot.envelope(outcome='partial' if issues else 'satisfied',ready=not issues,packet_id=data['packet_id'],version_id=data['version_id'],payload_sha256=digest(dict(packet_id=data['packet_id'],version_id=data['version_id'],recipient=data.get('recipient'),external_hashes=hashes)),recipient=data.get('recipient'),message_sha256=hashes.get('message'),external_hashes=hashes,issues=issues,permission_granted=False,external_actions={'performed':0})

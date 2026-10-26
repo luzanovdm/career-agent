@@ -17,6 +17,11 @@ def now():
     return datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
 
 
+def endpoint_identity(kind, value):
+    """One comparison for email aliases; HTTP path identity remains exact."""
+    return value.casefold() if kind=='email' and isinstance(value,str) else value
+
+
 def new_id(prefix):
     return prefix + '_' + uuid.uuid4().hex
 
@@ -416,6 +421,14 @@ class Snapshot:
         return self.envelope(allowed=allowed,status=grant['status'],scope=granted,expires_at=grant['expires_at'],
                              issues=[] if allowed else [dict(code='RESEARCH_NOT_AUTHORIZED',message='Explicit unchanged scoped research authorization required')])
 
+    def endpoint_suppressed(self, company_id, kind, value):
+        """Endpoint failures and opt-outs survive person/company route representation."""
+        company=self.get('company',company_id)
+        if any(row.get('kind')==kind and endpoint_identity(kind,row.get('value',''))==endpoint_identity(kind,value) for row in json.loads(company['detail']).get('suppressed_routes',[])):return True
+        args=(company_id,kind,value)
+        if self.one('SELECT 1 FROM channels ch JOIN persons p ON p.id=ch.person_id WHERE p.company_id=? AND ch.kind=? AND endpoint_identity(ch.kind,ch.value)=endpoint_identity(ch.kind,?) AND ch.suppressed=1 LIMIT 1',args):return True
+        return bool(self.one("SELECT 1 FROM activities a JOIN cases c ON c.id=a.case_id WHERE c.company_id=? AND a.kind='bounce' AND json_extract(a.detail,'$.channel.kind')=? AND endpoint_identity(json_extract(a.detail,'$.channel.kind'),json_extract(a.detail,'$.channel.value'))=endpoint_identity(json_extract(a.detail,'$.channel.kind'),?) LIMIT 1",args))
+
     def contact(self, record_id):
         from .policy import contact_issues
         person = self.get('person',record_id)
@@ -430,12 +443,30 @@ class Snapshot:
             route=channels[0] if len(channels)==1 else None
         if route:
             route['readable'] = bool(self.get('source',route['source_id'])['readable'])
+            route['suppressed']=route['suppressed'] or self.endpoint_suppressed(person['company_id'],route['kind'],route['value'])
         state = dict(person,valid_until=detail.get('valid_until'))
         issues = contact_issues(state,observations,route,now())
         return dict(id=person['id'],name=person['name'],version=person['version'],company_id=person['company_id'],company=self.get('company',person['company_id'])['name'],
                     affiliation=person['affiliation'],relevance=person['relevance'],sources=detail['sources'],track_rationales=detail.get('track_rationales',[]),
                     route={k:route[k] for k in ('kind','value','source_id')} if route else None,
                     qualified=not issues,issues=issues)
+
+    def selected_route(self, case, person_id=None, _contact=None):
+        """One route projection for readiness, readers and exact external handoff."""
+        if case['route']=='company':
+            from .policy import company_route_issues
+            company=self.get('company',case['company_id'])
+            route=json.loads(case['detail']).get('company_route') or {}
+            source=self.get('source',route['source_id']) if route.get('source_id') else None
+            suppressed=self.endpoint_suppressed(company['id'],route.get('kind'),route.get('value',''))
+            issues=company_route_issues(case,company,source,suppressed)
+            if person_id:issues.append(dict(code='ROUTE_UNVERIFIED',message='Company route cannot use a person-bound packet'))
+            return dict(route,owner='company',company_id=company['id'],qualified=not issues,suppressed=bool(suppressed),issues=issues)
+        if person_id:
+            contact=_contact or self.contact(person_id)
+            return dict(contact['route'] or {},owner='person',person_id=person_id,qualified=contact['qualified'],issues=contact['issues'])
+        opportunity=self.get('opportunity',case['opportunity_id']) if case['opportunity_id'] else None
+        return dict(kind='form',value=opportunity['canonical_url'],owner='case',qualified=True,issues=[]) if case['route']=='form' and opportunity else None
 
     def _paging(self, cursor, limit, scope):
         require(type(limit) is int and 1<=limit<=100,'INVALID_INPUT','limit must be 1..100')
@@ -539,6 +570,9 @@ class Snapshot:
             qualified = bool(packet['person_id']) and (_contact if _contact and _contact['id']==packet['person_id'] else self.contact(packet['person_id']))['qualified']
             if not qualified:
                 issues.append(issue('CONTACT_CONDITIONAL','Selected recipient is not currently qualified'))
+        selected_route=self.selected_route(case,packet['person_id'],_contact)
+        if case['route']=='company':
+            qualified=selected_route['qualified'];issues.extend(selected_route['issues'])
         names = {slot['name'] for slot in slots}
         if packet['purpose'] in ('application','referral'):
             required = {'resume','message','dossier','interview'}
@@ -571,6 +605,9 @@ class Snapshot:
         if json.loads(case['detail']).get('essential_policy')=='failed':
             issues.append(issue('ESSENTIAL_POLICY_FAILED','Confirmed essential policy prevents suitable-case credit'))
         unresolved=self.rows('SELECT a.id FROM activities a WHERE a.case_id=? AND a.kind="uncertain" AND NOT EXISTS(SELECT 1 FROM activities r WHERE r.resolves_activity_id=a.id) UNION SELECT a.id FROM packets p JOIN activities a ON a.packet_id=p.id WHERE p.person_id=? AND a.kind="uncertain" AND NOT EXISTS(SELECT 1 FROM activities r WHERE r.resolves_activity_id=a.id)',(packet['case_id'],packet['person_id']))
+        if selected_route and selected_route.get('kind')=='email':
+            extra=self.rows("SELECT a.id FROM activities a JOIN cases c ON c.id=a.case_id WHERE c.company_id=? AND a.kind='uncertain' AND json_extract(a.detail,'$.channel.kind')=? AND endpoint_identity(json_extract(a.detail,'$.channel.kind'),json_extract(a.detail,'$.channel.value'))=endpoint_identity(json_extract(a.detail,'$.channel.kind'),?) AND NOT EXISTS(SELECT 1 FROM activities r WHERE r.resolves_activity_id=a.id)",(case['company_id'],selected_route.get('kind'),selected_route.get('value')))
+            unresolved=list({r['id']:r for r in unresolved+extra}.values())
         eligibility=_eligibility or self.eligibility(case)
         progress=[]
         if include_text:
@@ -587,7 +624,7 @@ class Snapshot:
         issues.extend(x for x in editorial['issues'] if x not in issues)
         factual_pass=not any(not x['code'].startswith('EDITORIAL_') for x in issues)
         return dict(review_context=review_context if include_text else None,reported_sent=bool(self.one("SELECT 1 FROM activities WHERE packet_id=? AND version_id=? AND kind='sent' LIMIT 1",(packet_id,version_id))) if include_text else None,is_selected=version_id==packet['selected_version_id'],created_at=version['created_at'],ordinal=version['ordinal'],interview=interview,task_progress=progress,delivery=dict(retry_blocked=bool(unresolved),unresolved_activity_ids=[r['id'] for r in unresolved]),packet_id=packet_id,version_id=version_id,case_id=packet['case_id'],person_id=packet['person_id'],
-                    purpose=packet['purpose'],slots=slots,assessment=dict(factual_pass=factual_pass,editorial_status=editorial['status'],saved=not any(entry['code']=='MATERIAL_CHANGED' for entry in issues),prepared=not issues,qualified=qualified,
+                    purpose=packet['purpose'],selected_route=selected_route,slots=slots,assessment=dict(factual_pass=factual_pass,editorial_status=editorial['status'],saved=not any(entry['code']=='MATERIAL_CHANGED' for entry in issues),prepared=not issues,qualified=qualified,
                     issues=issues,unknowns=[entry['message'] for entry in eligibility['unknown_details']],unknown_details=eligibility['unknown_details'],conditional=eligibility['conditional'],eligibility=eligibility['status'],limitations=[dict(code='REVIEW_LIMITATION',message=review['limitations'])] if review else []),review=dict(id=review['id'],findings=review['findings'],limitations=review['limitations'],tone_findings=json.loads(review['detail']).get('tone_findings'),editorial=detail.get('editorial'),numeric_audit=detail.get('numeric_audit') if include_text else None) if review else None,
                     version=packet['version'],used_claim_ids=json.loads(version['used_claim_ids']),answer_ids=json.loads(version['answer_ids']))
 
@@ -596,6 +633,7 @@ class Snapshot:
         packet = self.one('SELECT p.* FROM packets p JOIN case_selections s ON s.packet_id=p.id WHERE s.case_id=?',(case['id'],))
         recipient_id=packet['person_id'] if packet else case['person_id']
         contact=self.contact(recipient_id) if recipient_id else None
+        selected_route=self.selected_route(case,recipient_id,contact)
         eligibility=self.eligibility(case)
         selection = self.selection(packet['id'],include_text=False,_contact=contact,_eligibility=eligibility,_packet=packet,_case=case) if packet and packet['selected_version_id'] else None
         activities = self.rows('SELECT kind FROM activities WHERE case_id=? ORDER BY occurred_at',(case['id'],))
@@ -609,7 +647,7 @@ class Snapshot:
             column = 'waiting'
         elif selection and selection['assessment']['prepared']:
             column = 'ready'
-        elif case['route']=='unknown' or (case['route']=='person' and (not contact or not contact['qualified'])):
+        elif case['route']=='unknown' or (case['route']=='person' and (not contact or not contact['qualified'])) or (case['route']=='company' and not selected_route['qualified']):
             column = 'qualify'
         else:
             column = 'prepare'
@@ -618,9 +656,9 @@ class Snapshot:
         if not case['closed']:
             actions.append(dict(intent='activity.record',label='Record actual activity',requires_input=True))
             actions.extend(dict(intent=intent,label=label,requires_input=True) for intent,label in [('agent.prepare','Ask agent to prepare'),('agent.review','Ask agent to review'),('agent.research','Ask agent to research')])
-        return dict(prepared=bool(selection and selection['assessment']['prepared']),conditional=eligibility['conditional'],eligibility=eligibility['status'],unknown_details=eligibility['unknown_details'],qualified=eligibility['status']=='verified' and not case['closed'] and self.readable_target(case) and (not contact or contact['qualified']),id=case['id'],company_id=case['company_id'],company=company['name'],opportunity_id=case['opportunity_id'],title=case['title'],
+        return dict(prepared=bool(selection and selection['assessment']['prepared']),conditional=eligibility['conditional'],eligibility=eligibility['status'],unknown_details=eligibility['unknown_details'],qualified=eligibility['status']=='verified' and not case['closed'] and self.readable_target(case) and (not contact or contact['qualified']) and (case['route']!='company' or selected_route['qualified']),id=case['id'],company_id=case['company_id'],company=company['name'],opportunity_id=case['opportunity_id'],title=case['title'],
                     kind=case['kind'],tracks=self.rows('SELECT t.id,t.name,ct.rationale FROM case_tracks ct JOIN tracks t ON t.id=ct.track_id WHERE ct.case_id=?',(case['id'],)),
-                    route=case['route'],contact={k:contact[k] for k in ('id','name','qualified','relevance','affiliation','route')} if contact else None,column=column,
+                    route=case['route'],selected_route=selected_route,contact={k:contact[k] for k in ('id','name','qualified','relevance','affiliation','route')} if contact else None,column=column,
                     next_action={'qualify':'Establish useful evidenced route','prepare':'Prepare or revise selected packet','ready':'Human review',
                     'waiting':'Reconcile delivery and response coverage','response':'Review evidenced next step','closed':'Closed'}[column],
                     blockers=blockers,selected_packet_id=packet['id'] if packet else None,
@@ -909,6 +947,7 @@ class Repository:
             require(Path(__file__).resolve()==(release/'runtime/career/repository.py').resolve(),'INSTALLED_COPY_REQUIRED','Active code changed; resume with the installed launcher')
         db = sqlite3.connect(self.database, timeout=2, isolation_level=None)
         db.row_factory = sqlite3.Row
+        db.create_function('endpoint_identity',2,endpoint_identity,deterministic=True)
         db.execute('PRAGMA foreign_keys=ON')
         db.execute('PRAGMA busy_timeout=2000')
         db.execute('PRAGMA synchronous=FULL')
@@ -1430,9 +1469,11 @@ def compile_command(snapshot, command):
             match=snapshot.one('SELECT id FROM companies WHERE domain=?',(domain,))
             if match and not data.get('id'):
                 data=dict(data,id=match['id'])
-        record_id,version,_=capture('company','company')
+        record_id,version,old=capture('company','company')
         refs('source',data.get('source_ids',[]))
-        sql('INSERT INTO companies VALUES (?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET version=excluded.version,name=excluded.name,domain=excluded.domain,detail=excluded.detail',record_id,version,data['name'],domain,canonical(dict(source_ids=data.get('source_ids',[]))))
+        detail=json.loads(old['detail']) if old else {}
+        detail['source_ids']=data.get('source_ids',[])
+        sql('INSERT INTO companies VALUES (?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET version=excluded.version,name=excluded.name,domain=excluded.domain,detail=excluded.detail',record_id,version,data['name'],domain,canonical(detail))
     elif intent=='contact.capture':
         text(data['name'],'name',500);text(data['relevance'],'relevance',8192)
         snapshot.get('company',data['company_id'])
@@ -1462,18 +1503,43 @@ def compile_command(snapshot, command):
         if route:sql('INSERT INTO channels VALUES (?,?,?,?,?,0) ON CONFLICT(person_id,kind,value) DO UPDATE SET source_id=excluded.source_id',channel_id,record_id,route['kind'],route['value'],route['source_id'])
         if data['affiliation']!='current':issues.append(issue('AFFILIATION_UNKNOWN','Retained provisional contact; not qualified',record_id))
     elif intent=='contact.suppress':
-        person=snapshot.get('person',data['person_id']);safe_route(data['kind'],data['value']);evidence(data['evidence']);text(data['reason'],'reason',8192)
-        channel=snapshot.one('SELECT * FROM channels WHERE person_id=? AND kind=? AND value=?',(person['id'],data['kind'],data['value']))
-        require(channel,'NOT_FOUND','Known exact endpoint required',404)
-        sql('UPDATE channels SET suppressed=1 WHERE id=?',channel['id'])
-        sql('UPDATE persons SET version=version+1 WHERE id=?',person['id'])
-        sql('INSERT INTO record_history(kind,record_id,version,body,revision) VALUES (?,?,?,?,?)','channel-suppression',channel['id'],1,canonical(data),snapshot.revision+1)
-        saved.append(person['id']);kinds.append('person')
+        require(bool(data.get('person_id'))!=bool(data.get('company_id')),'INVALID_INPUT','Suppression requires exactly one person_id or company_id')
+        safe_route(data['kind'],data['value']);evidence(data['evidence']);text(data['reason'],'reason',8192)
+        if data.get('company_id'):
+            company=snapshot.get('company',data['company_id']);detail=json.loads(company['detail'])
+            known=snapshot.one("SELECT 1 FROM cases WHERE company_id=? AND json_extract(detail,'$.company_route.kind')=? AND endpoint_identity(json_extract(detail,'$.company_route.kind'),json_extract(detail,'$.company_route.value'))=endpoint_identity(json_extract(detail,'$.company_route.kind'),?) LIMIT 1",(company['id'],data['kind'],data['value']))
+            require(known,'NOT_FOUND','Known exact company endpoint required',404)
+            endpoints=detail.setdefault('suppressed_routes',[])
+            if not any(r['kind']==data['kind'] and endpoint_identity(data['kind'],r['value'])==endpoint_identity(data['kind'],data['value']) for r in endpoints):
+                require(len(endpoints)<1000,'LIMIT_EXCEEDED','Company suppression limit reached')
+                endpoints.append(dict(kind=data['kind'],value=data['value']))
+            sql('UPDATE companies SET detail=?,version=version+1 WHERE id=?',canonical(detail),company['id'])
+            sql('INSERT INTO record_history(kind,record_id,version,body,revision) VALUES (?,?,?,?,?)','company-route-suppression',company['id'],company['version']+1,canonical(data),snapshot.revision+1)
+            saved.append(company['id']);kinds.append('company')
+        else:
+            person=snapshot.get('person',data['person_id'])
+            channel=snapshot.one('SELECT * FROM channels WHERE person_id=? AND kind=? AND value=?',(person['id'],data['kind'],data['value']))
+            require(channel,'NOT_FOUND','Known exact endpoint required',404)
+            sql('UPDATE channels SET suppressed=1 WHERE id=?',channel['id'])
+            sql('UPDATE persons SET version=version+1 WHERE id=?',person['id'])
+            sql('INSERT INTO record_history(kind,record_id,version,body,revision) VALUES (?,?,?,?,?)','channel-suppression',channel['id'],1,canonical(data),snapshot.revision+1)
+            saved.append(person['id']);kinds.append('person')
     elif intent=='case.capture':
         snapshot.get('company',data['company_id']);text(data['title'],'title',500)
         require(data['kind'] in ('vacancy','project','speculative'),'INVALID_INPUT','Invalid case kind')
-        require(data['route'] in ('person','form','unknown'),'INVALID_INPUT','Invalid route')
+        require(data['route'] in ('person','company','form','unknown'),'INVALID_INPUT','Invalid route')
         refs('source',data['source_ids'])
+        if data['route']=='company':
+            require(not data.get('person_id'),'INVALID_INPUT','Company route cannot invent or bind a person')
+            route=data.get('company_route')
+            require(isinstance(route,dict) and set(route)=={'kind','value','source_id'} and route['kind']=='email','INVALID_INPUT','Company route requires kind=email, value and source_id')
+            text(route['value'],'company email',320);identifier(route['source_id'])
+            from .policy import company_route_issues
+            prospective=dict(id=data.get('id','case_new'),company_id=data['company_id'],detail=canonical(dict(company_route=route,source_ids=data['source_ids'])))
+            require(not company_route_issues(prospective,snapshot.get('company',data['company_id']),snapshot.get('source',route['source_id'])),'ROUTE_UNVERIFIED','Company route needs scoped readable literal evidence on its official domain')
+            prospective['route']='company'
+            require(snapshot.selected_route(prospective)['qualified'],'ROUTE_UNVERIFIED','Company endpoint is suppressed')
+        else:require('company_route' not in data,'INVALID_INPUT','company_route is only valid for route=company')
         if data.get('person_id'):
             person=snapshot.get('person',data['person_id'])
             require(person['company_id']==data['company_id'],'IDENTITY_CONFLICT','Recipient must match case employer')
@@ -1516,12 +1582,12 @@ def compile_command(snapshot, command):
             refs('source',unknown['source_ids'])
         require(not essential_unknowns or data.get('essential_policy','unknown')=='unknown','INVALID_INPUT','Unresolved essentials cannot be declared verified or failed')
         data=dict(data,essential_unknowns=essential_unknowns)
-        semantic=digest({key:data.get(key) for key in ('company_id','title','kind','route','person_id','fallback_reason','essential_policy','essential_unknowns','tracks')})
+        semantic=digest({key:data.get(key) for key in ('company_id','title','kind','route','person_id','company_route','fallback_reason','essential_policy','essential_unknowns','tracks')})
         old_detail=json.loads(old['detail']) if old else {}
         semantic_version=old_detail.get('semantic_version',1)+(1 if old and old_detail.get('semantic_sha256')!=semantic else 0)
         require(data.get('essential_policy','unknown') in ('unknown','passed','failed'),'INVALID_INPUT','Essential policy must be unknown/passed/failed')
         sql('INSERT INTO cases(id,version,company_id,opportunity_id,title,kind,route,person_id,detail) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET version=excluded.version,title=excluded.title,route=excluded.route,person_id=excluded.person_id,detail=excluded.detail',
-            record_id,version,data['company_id'],opportunity,data['title'],data['kind'],data['route'],data.get('person_id'),canonical(dict(source_ids=data['source_ids'],fallback_reason=data.get('fallback_reason'),essential_policy=data.get('essential_policy','unknown'),essential_unknowns=essential_unknowns,semantic_version=semantic_version,semantic_sha256=semantic)))
+            record_id,version,data['company_id'],opportunity,data['title'],data['kind'],data['route'],data.get('person_id'),canonical(dict(source_ids=data['source_ids'],company_route=data.get('company_route'),fallback_reason=data.get('fallback_reason'),essential_policy=data.get('essential_policy','unknown'),essential_unknowns=essential_unknowns,semantic_version=semantic_version,semantic_sha256=semantic)))
         if opportunity:sql('UPDATE opportunities SET title=? WHERE id=?',data['title'],opportunity)
         sql('DELETE FROM case_tracks WHERE case_id=?',record_id)
         for track in data['tracks']:sql('INSERT INTO case_tracks VALUES (?,?,?)',record_id,track['id'],track['rationale'])
@@ -1540,6 +1606,7 @@ def compile_command(snapshot, command):
         require(not old,'ALREADY_EXISTS','Packet identity already exists')
         require(data['purpose'] in ('application','referral','contact','interview'),'INVALID_INPUT','Unsupported packet purpose')
         person_id=data.get('person_id',case['person_id'])
+        if case['route']=='company':require(not person_id,'INVALID_INPUT','Company route needs a personless packet')
         if person_id:require(snapshot.get('person',person_id)['company_id']==case['company_id'],'IDENTITY_CONFLICT','Recipient employer differs')
         sql('INSERT INTO packets VALUES (?,?,?,?,?,NULL)',record_id,1,case['id'],person_id,data['purpose'])
         sql('INSERT OR IGNORE INTO case_selections VALUES (?,?)',case['id'],record_id)
@@ -1743,8 +1810,13 @@ def compile_command(snapshot, command):
             current=snapshot.contact(packet['person_id'])
             binding=snapshot.one('SELECT record_version FROM dependencies WHERE version_id=? AND kind="person" AND record_id=?',(data['version_id'],packet['person_id']))
             if current['route'] and binding and binding['record_version']==current['version']:channel={key:current['route'][key] for key in ('kind','value')}
+        if data['kind'] in ('sent','uncertain') and not channel and case['route']=='company' and packet.get('selected_version_id')==data.get('version_id'):
+            binding=snapshot.one('SELECT record_version FROM dependencies WHERE version_id=? AND kind="case" AND record_id=? AND purpose="eligibility"',(data.get('version_id'),case['id']))
+            if binding and binding['record_version']==json.loads(case['detail']).get('semantic_version',1):
+                route=snapshot.selected_route(case)
+                if route and route['qualified']:channel={key:route[key] for key in ('kind','value')}
         if data['kind']=='bounce' and channel:
-            sql('UPDATE channels SET suppressed=1 WHERE kind=? AND value=? AND person_id IN(SELECT id FROM persons WHERE company_id=?)',channel['kind'],channel['value'],case['company_id'])
+            sql('UPDATE channels SET suppressed=1 WHERE kind=? AND endpoint_identity(kind,value)=endpoint_identity(kind,?) AND person_id IN(SELECT id FROM persons WHERE company_id=?)',channel['kind'],channel['value'],case['company_id'])
         record_id=new_id('activity');saved.extend([record_id,case['id']]);kinds.extend(['activity','case'])
         sql('INSERT INTO activities VALUES (?,?,?,?,?,?,?,?,?,?)',record_id,case['id'],data['kind'],data['occurred_at'],now(),data['evidence'],data.get('packet_id'),data.get('version_id'),resolves,canonical(dict(coverage=data.get('coverage'),channel=channel,related_activity_id=data.get('related_activity_id'),message_sha256=data.get('message_sha256'),review_warnings=[item for item in issues if item['code'] in ('SENT_PAYLOAD_MISMATCH','SENT_UNREVIEWED')])))
     elif intent=='permission.record':
@@ -1771,16 +1843,22 @@ def compile_command(snapshot, command):
     if intent=='activity.record':
         affected.add(data['case_id'])
         if data['kind']=='bounce' and channel:
-            affected.update(r['id'] for r in snapshot.rows('SELECT DISTINCT c.id FROM cases c JOIN channels ch ON ch.person_id=c.person_id WHERE c.company_id=? AND ch.kind=? AND ch.value=? UNION SELECT DISTINCT c.id FROM cases c JOIN packets p ON p.case_id=c.id JOIN channels ch ON ch.person_id=p.person_id WHERE c.company_id=? AND ch.kind=? AND ch.value=?',(case['company_id'],channel['kind'],channel['value'])*2))
+            affected.update(r['id'] for r in snapshot.rows('SELECT DISTINCT c.id FROM cases c JOIN channels ch ON ch.person_id=c.person_id WHERE c.company_id=? AND ch.kind=? AND endpoint_identity(ch.kind,ch.value)=endpoint_identity(ch.kind,?) UNION SELECT DISTINCT c.id FROM cases c JOIN packets p ON p.case_id=c.id JOIN channels ch ON ch.person_id=p.person_id WHERE c.company_id=? AND ch.kind=? AND endpoint_identity(ch.kind,ch.value)=endpoint_identity(ch.kind,?)',(case['company_id'],channel['kind'],channel['value'])*2))
+        if data['kind'] in ('bounce','uncertain','not_sent','sent'):
+            affected.update(r['id'] for r in snapshot.rows("SELECT id FROM cases WHERE company_id=? AND route='company'",(case['company_id'],)))
     if intent=='company.capture':
         affected.update(r['id'] for r in snapshot.rows('SELECT id FROM cases WHERE company_id=?',(saved[0],)))
     if intent in ('contact.capture','contact.suppress'):
         affected.update(r['id'] for r in snapshot.rows('SELECT id FROM cases WHERE person_id=?',(saved[0],)))
         affected.update(r['case_id'] for r in snapshot.rows('SELECT case_id FROM packets WHERE person_id=?',(saved[0],)))
+        if intent=='contact.suppress':
+            company_id=data.get('company_id') or snapshot.get('person',data['person_id'])['company_id']
+            affected.update(r['id'] for r in snapshot.rows('SELECT id FROM cases WHERE company_id=?',(company_id,)))
     if intent in ('claim.save','source.capture','track.save','answer.save'):
         changed_kind={'claim.save':'claim','source.capture':'source','track.save':'track','answer.save':'answer'}[intent]
         affected.update(r['case_id'] for r in snapshot.rows('SELECT DISTINCT p.case_id FROM dependencies d JOIN packet_versions v ON v.id=d.version_id JOIN packets p ON p.id=v.packet_id WHERE d.kind=? AND d.record_id=?',(changed_kind,saved[0])))
         if intent=='source.capture':
+            affected.update(r['id'] for r in snapshot.rows("SELECT id FROM cases WHERE json_extract(detail,'$.company_route.source_id')=?",(saved[0],)))
             affected.update(r['id'] for r in snapshot.rows("SELECT DISTINCT c.id FROM cases c JOIN persons p ON p.id=c.person_id WHERE EXISTS(SELECT 1 FROM json_each(p.detail,'$.sources') o WHERE json_extract(o.value,'$.source_id')=?) OR EXISTS(SELECT 1 FROM channels ch WHERE ch.person_id=p.id AND ch.source_id=?) UNION SELECT DISTINCT pk.case_id AS id FROM packets pk JOIN persons p ON p.id=pk.person_id WHERE EXISTS(SELECT 1 FROM json_each(p.detail,'$.sources') o WHERE json_extract(o.value,'$.source_id')=?) OR EXISTS(SELECT 1 FROM channels ch WHERE ch.person_id=p.id AND ch.source_id=?)",(saved[0],)*4))
         if intent=='answer.save':
             scope=data['scope']

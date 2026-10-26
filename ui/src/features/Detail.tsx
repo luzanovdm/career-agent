@@ -33,6 +33,7 @@ import { EvidenceBank } from "./EvidenceBank";
 import { SourceEvidence } from "./SourceEvidence";
 import { packetLabel } from "./PacketLabel";
 import { AgentPrompt } from "./AgentPrompt";
+import { RouteIdentity, RouteLink } from "./CaseRoute";
 export function Detail({
   detail,
   api,
@@ -131,42 +132,14 @@ export function Detail({
       <div className="case-context">
         <span>
           {t("case.primaryRoute")} ·{" "}
-          <strong>
-            {detail.case.contact?.name ?? t("cases.contactMissing")}
-          </strong>{" "}
-          ·{" "}
-          {t(
-            detail.case.route === "person"
-              ? "cases.routePerson"
-              : detail.case.route === "form"
-                ? "cases.routeForm"
-                : "cases.routeUnknown",
-          )}
+          <RouteIdentity item={detail.case} emphasize />
         </span>
         <span>{t(`column.${detail.case.column}`)}</span>
       </div>
       {detail.case.contact?.relevance && (
         <p className="contact-relevance">{detail.case.contact.relevance}</p>
       )}
-      {detail.case.contact?.route &&
-        safeLink(detail.case.contact.route.value) && (
-          <p className="professional-route">
-            <Link
-              href={safeLink(detail.case.contact.route.value)}
-              target="_blank"
-              rel="noopener noreferrer"
-              referrerPolicy="no-referrer"
-            >
-              {detail.case.contact.route.value}
-            </Link>{" "}
-            ·{" "}
-            {t(
-              detail.case.contact.qualified
-                ? "detail.qualified"
-                : "detail.qualificationPending",
-            )}
-          </p>
-        )}
+      <RouteLink item={detail.case} />
       {detail.role && (
         <p className="professional-route">
           {detail.role.url && safeLink(detail.role.url) && (

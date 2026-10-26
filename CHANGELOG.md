@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.5
+
+- Recognize only exact source-bound HTTP(S) URL spans as references; numeric quantities outside the URL still require independent evidence.
+- Select an evidenced company mailbox through the existing case owner, without invented employees. Share endpoint suppression, uncertain outcomes and exact recipient checks across person/company representations.
+- Invalidate relevant route/source reviews and require current numeric policy before reuse. Preserve immutable text, reviews, primary selections and historical transmission records through updates.
+
 ## 1.0.4
 
 - Admit exact source-backed named-employer/project occurrences that resemble units, without changing the target company or allowing global numeric exceptions. Require scoped naming evidence and independently grounded claim support.

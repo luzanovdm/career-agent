@@ -1,7 +1,7 @@
 """Pure bounded qualification, scoped policy and mechanical review rules."""
 import re
 from urllib.parse import urlsplit
-from .contracts import issue, require
+from .contracts import CareerError, issue, require
 from .numeric import number_tokens, numeric_review, occurrences, reference_index
 
 
@@ -28,6 +28,24 @@ def contact_issues(person, sources, route, at):
     if not route or not route.get('readable') or route.get('suppressed'):
         issues.append(issue('ROUTE_UNVERIFIED', 'No currently usable evidenced professional route', person['id']))
     return issues
+
+
+def company_route_issues(case, company, source, suppressed=False):
+    """Published company mailbox evidence, without inventing a person's identity."""
+    import json
+    route=json.loads(case['detail']).get('company_route')
+    if not isinstance(route,dict) or set(route)!={'kind','value','source_id'} or route['kind']!='email':
+        return [issue('ROUTE_UNVERIFIED','Company route requires an exact evidenced email',case['id'])]
+    try:safe_route(route['kind'],route['value'])
+    except CareerError:return [issue('ROUTE_UNVERIFIED','Invalid company mailbox',case['id'])]
+    try:
+        parsed=urlsplit(source['locator']) if source else None
+        host=parsed.hostname if parsed and parsed.scheme in ('http','https') and not parsed.username and not parsed.password else None
+    except ValueError:host=None
+    domain=company.get('domain')
+    literal=bool(source and re.search(r'(?<![\w.+-])'+re.escape(route['value'])+r'(?![\w+-]|\.[\w-])',source['excerpt'],re.IGNORECASE))
+    valid=source and source['readable'] and source['id'] in json.loads(case['detail']).get('source_ids',[]) and domain and host and (host==domain or host.endswith('.'+domain)) and literal
+    return [] if valid and not suppressed else [issue('ROUTE_UNVERIFIED','Company mailbox needs readable literal evidence on its official domain and an unsuppressed endpoint',case['id'])]
 
 
 def resolve_policy(defaults, overrides, task):
