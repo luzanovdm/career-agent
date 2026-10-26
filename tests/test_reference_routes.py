@@ -54,6 +54,20 @@ class SourceURLTests(unittest.TestCase):
         for text in ('<'+url+'>','('+url+').','[listing]('+url+')','(<'+url+'>).'):
             with self.subTest(text=text):self.assertEqual([],self.check_url(text,url=url)[0])
 
+    def test_enclosing_wrappers_with_introductory_text_preserve_exact_url(self):
+        url='https://market.example/jobs/123'
+        for pattern in ('Listing (source: {url}).','(see [listing]({url})).','Listing {{source: [{url}]}}.','«source: {url}».','"source: {url}".',"Applicant's source (reference: {url})."):
+            text=pattern.format(url=url)
+            with self.subTest(text=text):self.assertEqual([],self.check_url(text,url=url)[0])
+        issues,audit=self.check_url('Listing (source: '+url+'). Managed 999 engineers.',url=url)
+        self.assertEqual(['999'],[row['token'] for row in issues]);self.assertEqual('reference',audit['occurrences'][0]['role'])
+
+    def test_introductory_wrappers_never_hide_suffix_or_mismatched_delimiter(self):
+        url='https://market.example/jobs/123'
+        for pattern in ('Listing (source: {url})evil.','(see [listing]({url}))evil.','Listing [source: {url}).','Listing (source: <{url})evil>.','Listing (source: {url}/other).','Listing (source: {url})%','Listing (source: {url})?metric'):
+            text=pattern.format(url=url)
+            with self.subTest(text=text),self.assertRaises(CareerError):self.check_url(text,url=url)
+
 
 class CompanyMailboxTests(unittest.TestCase):
     def setUp(self):

@@ -219,9 +219,21 @@ def complete_url_boundary(text,start,end):
     """Only whole locators with matched wrappers and a prose boundary may be exempted."""
     pairs={'(':')','[':']','{':'}','<':'>','"':'"',"'":"'",'“':'”','‘':'’','«':'»'}
     if start and not text[start-1].isspace() and text[start-1] not in pairs:return False
-    expected=[];left=start-1
-    while left>=0 and text[left] in pairs:
-        expected.append(pairs[text[left]]);left-=1
+    # Enclosing prose/Markdown wrappers may open before introductory words, not
+    # just directly before the locator. Keep a bounded unmatched delimiter stack.
+    stack=[];prefix=text[:start]
+    for index,char in enumerate(prefix):
+        if char in ('"',"'") and stack and stack[-1]==char:
+            stack.pop()
+        elif char=="'" and index and prefix[index-1].isalnum():
+            continue  # A prose apostrophe is not an opening quotation mark.
+        elif char in pairs:
+            if len(stack)>=64:return False
+            stack.append(pairs[char])
+        elif char in pairs.values():
+            if stack and stack[-1]==char:stack.pop()
+            else:stack.clear()  # A prior unrelated unmatched closer has no scope.
+    expected=list(reversed(stack))
     right=end
     while right<len(text) and not text[right].isspace():
         char=text[right]
