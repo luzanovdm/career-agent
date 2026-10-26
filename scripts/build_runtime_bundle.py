@@ -121,7 +121,7 @@ def build(runtime_archive,destination,target,ui=None):
         require(input_ui_hashes=={str(p.relative_to(ui)):digest(p.read_bytes()) for p in ui.rglob('*') if p.is_file()},'UI_BUILD_CHANGED','UI build changed while packaging')
         (root/'skill/references').mkdir(parents=True)
         for name in ('SKILL.md','LICENSE'):shutil.copyfile(SOURCE/'skills/career-agent'/name,root/'skill'/name)
-        for name in ('profile-tracks.md','search-contacts-packets.md','progress-history-recovery.md','interviews.md','interaction-capabilities.md','installation.md'):
+        for name in ('profile-tracks.md','search-contacts-packets.md','progress-history-recovery.md','interviews.md','interaction-capabilities.md','installation.md','writing.md'):
             shutil.copyfile(SOURCE/'skills/career-agent/references'/name,root/'skill/references'/name)
         (root/'bin').mkdir();(root/'bin/entry.py').write_text(ENTRY)
         bootstrap="import pathlib,sys\nsys.path.insert(0,str(pathlib.Path(__file__).resolve().parents[1]/'runtime'))\nfrom career_bootstrap_entry import main\nraise SystemExit(main())\n"

@@ -16,10 +16,10 @@ def parser():
     init=sub.add_parser('init');init.add_argument('--name',required=True);init.add_argument('--language',default='en');init.add_argument('--ui-locale',default='en')
     resolve=sub.add_parser('resolve-intent');resolve.add_argument('--input',default='-')
     stage=sub.add_parser('stage');stage.add_argument('file')
-    context=sub.add_parser('context');context.add_argument('--task',choices=('profile','contacts','packets','history','interview'));context.add_argument('--case-id');context.add_argument('--track-id');context.add_argument('--source-id');context.add_argument('--claim-id');context.add_argument('--answer-id');context.add_argument('--cursor');context.add_argument('--limit',type=int,default=25)
+    context=sub.add_parser('context');context.add_argument('--task',choices=('profile','contacts','packets','history','interview'));context.add_argument('--case-id');context.add_argument('--track-id');context.add_argument('--source-id');context.add_argument('--claim-id');context.add_argument('--answer-id');context.add_argument('--cursor');context.add_argument('--limit',type=int,default=25);context.add_argument('--claim-scope',choices=('linked','bank'),default='linked')
     sub.add_parser('doctor');sub.add_parser('backup');sub.add_parser('research-check')
     contract=sub.add_parser('schema');contract.add_argument('intent',nargs='?')
-    for op in ('plan','command'):
+    for op in ('plan','command','review-context','handoff-check'):
         entry=sub.add_parser(op);entry.add_argument('--input',default='-',help='Bounded JSON request file, or stdin')
     apply=sub.add_parser('apply');apply.add_argument('plan_id')
     status=sub.add_parser('command-status');status.add_argument('request_id')
@@ -69,14 +69,14 @@ def main(argv=None):
                 input_id=new_id('input');target=contained(tasks.repository.root,'.career-agent/staging/'+input_id)
                 with target.open('xb') as stream:stream.write(content)
                 target.chmod(0o600);result=dict(input_id=input_id,sha256=digest(content),size=len(content))
-            elif args.operation=='context':result=tasks.context(task=args.task,case_id=args.case_id,track_id=args.track_id,source_id=args.source_id,claim_id=args.claim_id,answer_id=args.answer_id,limit=args.limit,cursor=args.cursor)
+            elif args.operation=='context':result=tasks.context(task=args.task,case_id=args.case_id,track_id=args.track_id,source_id=args.source_id,claim_id=args.claim_id,answer_id=args.answer_id,limit=args.limit,cursor=args.cursor,claim_scope=args.claim_scope)
             elif args.operation=='doctor':result=tasks.repository.doctor()
             elif args.operation=='backup':result=tasks.repository.portable_export()
             elif args.operation=='research-check':result=tasks.query('research-check')
-            elif args.operation in ('plan','command','resolve-intent'):
+            elif args.operation in ('plan','command','resolve-intent','review-context','handoff-check'):
                 content=sys.stdin.read(1024*1024+1) if args.input=='-' else Path(args.input).read_text()
                 if len(content.encode())>1024*1024:raise CareerError('LIMIT_EXCEEDED','Request exceeds 1 MiB')
-                result=tasks.query('resolve-intent',descriptor=json.loads(content)) if args.operation=='resolve-intent' else getattr(tasks,args.operation)(json.loads(content))
+                result=tasks.query('resolve-intent',descriptor=json.loads(content)) if args.operation=='resolve-intent' else tasks.query(args.operation,input=json.loads(content)) if args.operation in ('review-context','handoff-check') else getattr(tasks,args.operation)(json.loads(content))
             elif args.operation=='apply':result=tasks.apply(args.plan_id)
             elif args.operation=='command-status':result=tasks.repository.status(args.request_id)
             elif args.operation=='query':

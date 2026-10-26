@@ -1,0 +1,11 @@
+# Writing behavior acceptance (reviewer-only)
+
+Run fresh agents with the installed skill, one scenario's task/raw facts/recipient and only required host capabilities. Do not provide this rubric, a desired thesis, the suspected defect, an example answer or prior conclusions to the writing agent. Keep generated workspaces and full transcripts outside the repository. No employer lookup/send is required; supplied example URLs identify fictional evidence.
+
+Compare actual draft and persisted review against the raw evidence. Evaluate: useful recipient-specific argument rather than a fact catalogue; support for each connection; honest personal/team responsibility and results; preservation of relevant late corrections/strengths; feasible next action; appropriate length/voice/terminology for the stated format. Different defensible structures can pass. No required phrases, percentages, AI mentions, number of paragraphs or chronology.
+
+Use the paired editor scenarios to test changed audience decisions, not name substitution. Add a follow-up factual correction and a style objection in separate turns; observe changed reasoning rather than extra figures. Test a correct but unhelpful list and an attractive unsupported claim separately: factual and editorial results must differ appropriately. Confirm no-metric/no-AI cases remain useful, the AI-evidence case retains evidenced observable responsibility without invented expertise, and Russian does not invent emotions or mechanically translate established terms.
+
+Also inspect final installed selected bytes and binding. Change one qualitative sentence after approval, change recipient, add a confirmed fact outside old links, then make an unrelated private note in independent cases. The corresponding review must expire for material changes, but not for the unrelated revision. A hash/token is consistency evidence, not proof the model read or understood it.
+
+Report case-level PASS/FAIL with excerpts and reasons plus raw transcript/artifact paths; evaluate blind between current and proposed skill when practical. Author unit fixtures are structural attestations only and are not writing-quality evidence. Review failures should lead to a bounded correction, not a growing global phrase blacklist or golden-answer template.

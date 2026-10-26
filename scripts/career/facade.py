@@ -56,6 +56,9 @@ class Tasks:
 
     @staticmethod
     def _query(snapshot,kind,filters):
+        if kind in ('review-context','handoff-check'):
+            from .editorial import context,handoff
+            return (context if kind=='review-context' else handoff)(snapshot,filters['input'])
         if kind=='localization':return snapshot.localization(filters.get('locale'))
         if kind=='agent-intent':return snapshot.agent_intent(filters['intent'],filters.get('case_id'),filters.get('track_id'),filters.get('packet_id'),filters.get('version_id'))
         if kind=='resolve-intent':return snapshot.resolve_intent(filters['descriptor'])

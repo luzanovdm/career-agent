@@ -69,6 +69,11 @@ def run(archive,expected,output):
             revision=context['revision'];serial=0
             def command(intent,**data):
                 nonlocal revision,serial
+                # Structural integration fixture, not an assessment of literary quality.
+                if intent=='packet.save' and data.get('review') and 'editorial' not in data['review']:
+                    value={k:data[k] for k in ('packet_id','documents','used_claim_ids','answer_ids') if k in data}
+                    bound,_=cli('review-context',input=value)
+                    data['review']['editorial']=dict(argument='Synthetic contribution for the documented workflow owner.',decision='approved',findings='Structural installed fixture only; behavioral quality is a separate gate.',binding=bound['binding'])
                 serial+=1;request=dict(request_id='installed_'+str(serial),expected_revision=revision,intent=intent,input=data)
                 receipt,elapsed=cli('command',input=request,allowed=(0,3));revision=receipt['revision'];return receipt,elapsed
             command('source.capture',id='source_installed',locator='https://northstar.example/team',excerpt='Morgan Example works on the workflow. Improved processing by 25%.',observed_at='2026-10-24T00:00:00Z',readable=True)
@@ -268,6 +273,14 @@ print(json.dumps(dict(status='passed',revision=revision)))
             assert changed['outcome']=='partial' and 'UNMATCHED_NUMBER' in {entry['code'] for entry in changed['issues']}
             selected,_=cli('deliver','packet_currency',allowed=(0,3));assert not selected['assessment']['prepared'] and selected['review']['numeric_audit']['occurrences'][0]['unit']=='opaque:rupees'
             checks.append('Installed changed unknown spaced currency stays opaque and partial, never prepared by an equal unitless numeral')
+            editorial_input=dict(packet_id='packet_numeric',documents=[dict(slot='message',text='Icons8: D3 n8n B2B.')],used_claim_ids=[])
+            bound,_=cli('review-context',input=editorial_input);assert bound['approval'] is False and bound['claim_frontier']['total']>=1
+            revised_review=dict(numeric_review,editorial=dict(argument='Explain the evidenced reference in this fictional contact context.',decision='revise',findings='Structural fixture: the reader needs a clearer next step.',binding=bound['binding']))
+            result,_=command('packet.save',**editorial_input,review=revised_review);assert result['outcome']=='partial'
+            selected,_=cli('query','selection','--id','packet_numeric');assert selected['assessment']['factual_pass'] and not selected['assessment']['prepared'] and selected['assessment']['editorial_status']=='revise'
+            check,_=cli('handoff-check',input=dict(packet_id='packet_numeric',version_id=selected['version_id'],documents=editorial_input['documents']),allowed=(0,3));assert not check['ready'] and not check['permission_granted']
+            bank_context,_=cli('context','--task','profile','--claim-scope','bank','--limit','1');assert bank_context['claim_frontier']['total']>=1
+            checks.append('Installed factual/editorial separation, exact bound judgment, bounded claim-bank discovery and blocked unready external handoff; no sender')
             failed_archive=parent/'fictional-failed-update.zip';failed_sha,failed_id=update_fixture(archive,failed_archive,fail_context=True)
             before_pointer=json.loads((workspace/'.career-agent/active.json').read_text())
             failed=subprocess.run([str(launcher),'app','update','--archive',str(failed_archive),'--sha256',failed_sha],capture_output=True,text=True,env=environment,cwd=parent,timeout=60)

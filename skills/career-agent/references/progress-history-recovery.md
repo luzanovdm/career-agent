@@ -2,7 +2,7 @@
 
 Use the established workspace and installed context; status never starts research. Read exact case/selected packet history through query; distinguish opportunities, speculative needs, people, channels, versions, transmissions and responses. A company contact does not apply to every vacancy.
 
-Record actual manual/user/provider observations through activity.record with exact case, occurrence time, evidence and pinned packet/version when known. Prepared is not sent; receipt is not hiring progress; bounce is not employer rejection; referral agreed is not performed. Historical pins may differ from the currently selected draft. Evidence of an actual unreviewed send is retained as such, never rewritten into preparation approval.
+Record actual manual/user/provider observations through activity.record with exact case, occurrence time, evidence and pinned packet/version when known. Prepared is not sent; receipt is not hiring progress; bounce is not employer rejection; referral agreed is not performed. Historical pins may differ from the currently selected draft. Evidence of an actual unreviewed send is retained as such, never rewritten into preparation approval. Record an observed message_sha256 when available; a payload/review mismatch is an explicit warning on the real event, never a ready-to-send claim or invented non-send.
 
 An uncertain action blocks another coordinated transmission until linked evidence reconciliation. Preserve its original occurrence time and selected pins. A timeout, expired lease, empty query or elapsed waiting period never proves no send. Unknown/partial channel coverage is unobserved, not silence. Keep event cutoff and evidence-check cutoff distinct in reports. Do not infer access to an inbox or complete coverage.
 

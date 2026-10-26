@@ -193,6 +193,8 @@ export interface Selection {
   assessment: {
     saved: true;
     prepared: boolean;
+    factual_pass?: boolean;
+    editorial_status?: "approved" | "revise" | "pending" | "stale" | "not_recorded" | "not_applicable";
     qualified: boolean;
     issues: Issue[];
     unknowns: string[];
@@ -203,6 +205,7 @@ export interface Selection {
     findings: unknown;
     limitations: unknown;
     tone_findings?: unknown;
+    editorial?: { argument: string; decision: "approved" | "revise" | "pending"; findings: string; binding: string } | null;
   } | null;
   version: number;
 }
@@ -240,6 +243,9 @@ export interface CaseDetail extends Snapshot {
     version_id: string | null;
     packet_id?: string | null;
     payload_unknown?: boolean;
+    message_sha256?: string | null;
+    pinned_message_sha256?: string | null;
+    warnings?: Issue[];
   }[];
   interview: InterviewItem[];
   sources: {
