@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 import zipfile
 from .contracts import CareerError, require
 
-CONTACT_POLICY = 'career-agent.contact-disclosure/3'
+CONTACT_POLICY = 'career-agent.contact-disclosure/4'
 CONTACT_CODES = frozenset(('CONTACT_PREFERENCE_UNKNOWN','CONTACT_DISCLOSURE_BLOCKED','CONTACT_MISMATCH','PRIVATE_FLOOR_DISCLOSED'))
 
 
@@ -52,13 +52,15 @@ def calendar_period(text,start,end):
     """Calendar syntax is not a phone; an explicit telephone field takes priority."""
     from datetime import date
     value=text[start:end]
-    prefix=text[max(0,start-160):start]
+    # Format controls affect presentation, not the field identity or source offsets.
+    prefix=''.join(char for char in unicodedata.normalize('NFKC',text[max(0,start-160):start]) if unicodedata.category(char)!='Cf')
     # Field qualifiers and presentation wrappers cannot turn a disclosed phone
     # into a calendar period. Allow decorations only, not intervening prose.
     label=r'(?:\b(?:phone(?:\s+number)?|telephone|tel|mobile(?:\s+number)?|fax|contact|телефон(?:а)?|тел|мобильный|контакт)\.?|☎|📞)'
-    qualifier=r'(?:[ \t]*(?:\([^()\r\n\d]{1,40}\)|\[[^\[\]\r\n\d]{1,40}\]))?'
+    qualifier=r'(?:[ \t]*(?:\([^()\r\n]{1,40}\)|\[[^\[\]\r\n]{1,40}\]))?'
+    index=r'(?:[ \t]*#?[ \t]*\d+)?'
     decorations=r"[\s:：(\[{\"'“‘«»”’]*"
-    if re.search(label+qualifier+decorations+r'$',prefix,re.IGNORECASE):return False
+    if re.search(label+index+decorations+qualifier+index+decorations+r'$',prefix,re.IGNORECASE):return False
     if re.fullmatch(r'\d{4}-\d{2}-\d{2}',value):
         try:date.fromisoformat(value);return True
         except ValueError:return False

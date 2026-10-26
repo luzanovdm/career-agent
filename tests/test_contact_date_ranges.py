@@ -1,5 +1,6 @@
 """Fictional contact-disclosure regressions; no applicant documents in source."""
 import json
+from itertools import product
 from pathlib import Path
 import sys
 import tempfile
@@ -29,7 +30,9 @@ class ContactDateTests(unittest.TestCase):
             with self.subTest(text=text):self.assertIn('CONTACT_DISCLOSURE_BLOCKED',{i['code'] for i in self.check(text)})
 
     def test_explicit_phone_fields_keep_priority_through_wrappers_and_qualifiers(self):
-        for field in ('Phone:', 'Phone (work):', 'Mobile [office]:', 'Телефон (рабочий):', 'Contact:'):
+        fields=[label+index+qualifier+': '+mark for label,index,qualifier,mark in product(('Phone','Telephone','Tel','Mobile','Fax','Contact','Телефон'),('',' 1',' #2'),('',' (office 2)',' [desk 3]'),('','\u200e','\u200f','\u202a','\u2066','\u2069','\u200b'))]
+        fields.extend(('Phone (office 2) #1:', 'Phone: (office 2):', 'Ph\u200fone: \u2066'))
+        for field in fields:
             for opening,closing in (('', ''), ('(', ')'), ('[', ']'), ('"', '"'), ('“', '”'), ('«(', ')»')):
                 for value in ('2012 - 2016', '2026-10-26'):
                     text=f'{field} {opening}{value}{closing}'
@@ -96,7 +99,7 @@ class ContactBinaryTests(unittest.TestCase):
         return f.command('packet.save',packet_id='packet_one',used_claim_ids=['claim_one'],documents=[dict(slot='resume',text=text),dict(slot='message',text='An evidenced contribution.'),dict(slot='dossier',text='Private context.'),dict(slot='interview',text='Private preparation.')],review=dict(findings='Compared exact synthetic evidence.',limitations='Mechanical fixture only.',tone_findings='No invented familiarity.',claim_spans=[dict(claim_id='claim_one',text=text)],coverage=[dict(claim_id='claim_one',disposition='included')]))
 
     def test_wrapped_phone_blocks_facade_handoff_and_exact_binary_atomically(self):
-        for index,text in enumerate(('Phone: (2012 - 2016)', 'Phone: [2012 - 2016]', 'Phone: "2012 - 2016"', 'Phone (work): 2012 - 2016')):
+        for index,text in enumerate(('Phone: (2012 - 2016)', 'Phone: [2012 - 2016]', 'Phone: "2012 - 2016"', 'Phone (work): 2012 - 2016', 'Phone: \u200e2012 - 2016', 'Phone (office 2): 2012 - 2016', 'Phone 1: 2012 - 2016')):
             with self.subTest(text=text):
                 receipt=self.save_phone_review(self.f,text)
                 self.assertIn('CONTACT_DISCLOSURE_BLOCKED',{i['code'] for i in receipt['issues']})

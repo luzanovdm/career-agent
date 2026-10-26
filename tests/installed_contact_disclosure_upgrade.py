@@ -78,7 +78,7 @@ def run(previous,previous_sha,candidate,candidate_sha,document,document_sha,outp
         assert 'CONTACT_DISCLOSURE_BLOCKED' not in {i['code'] for i in next(c for c in cli('query','cases')['items'] if c['id']=='case_one')['blockers']}
         command('artifact.attach',**attach);attached=cli('deliver','packet_one');assert attached['slots'][0]['sha256']==document_sha
         assert not attached['assessment']['prepared'] and 'CONTACT_DISCLOSURE_BLOCKED' not in {i['code'] for i in attached['assessment']['issues']}
-        for phone in ('Phone: +1 202 555 0142','Phone: (2012 - 2016)','Phone: [2012 - 2016]','Phone: \"2012 - 2016\"','Phone (work): 2012 - 2016'):
+        for phone in ('Phone: +1 202 555 0142','Phone: (2012 - 2016)','Phone: [2012 - 2016]','Phone: \"2012 - 2016\"','Phone (work): 2012 - 2016','Phone: \u200e2012 - 2016','Phone (office 2): 2012 - 2016','Phone 1: 2012 - 2016'):
             command('packet.save',packet_id='packet_one',documents=[dict(slot='resume',text=phone)],used_claim_ids=[])
             source=cli('deliver','packet_one');stream=io.BytesIO()
             with zipfile.ZipFile(stream,'w') as z:z.writestr('word/document.xml','<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:p><w:r><w:t>'+phone+'</w:t></w:r></w:p></w:document>')
