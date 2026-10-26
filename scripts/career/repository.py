@@ -545,12 +545,10 @@ class Snapshot:
                               text=body,download_url='/api/v1/artifacts/'+artifact['id']+'/download'))
         review = self.one('SELECT * FROM reviews WHERE version_id=?',(version_id,))
         from .binary import CONTACT_CODES
-        saved_contact_findings=False
         if not review:
             issues.append(issue('REVIEW_REQUIRED','Selected draft requires fact and tone review'))
         else:
             detail = json.loads(review['detail'])
-            saved_contact_findings=any(row.get('code') in CONTACT_CODES for row in detail.get('issues',[]))
             # Contact disclosure is a current projection; immutable old reviews stay intact.
             issues.extend(row for row in detail.get('issues',[]) if row.get('code') not in CONTACT_CODES)
             from .numeric import POLICY as NUMERIC_POLICY
@@ -584,28 +582,30 @@ class Snapshot:
             if not required<=names:
                 issues.append(issue('PACKET_INCOMPLETE','Missing required slots: '+', '.join(sorted(required-names))))
         from .binary import contact_checks
-        if include_text or saved_contact_findings or self.applicable_answers(case['id']):
-            if not include_text:
-                for slot in slots:
-                    try:artifact,path=self.object(slot['artifact_id'])
-                    except CareerError as error:
-                        if error.code=='MATERIAL_CHANGED':continue
-                        raise
-                    slot['text']=path.read_text() if artifact['media_type'] in ('text/markdown','text/plain') else None
-            documents=[]
+        # Current disclosure policy applies even to old reviews without answers/findings.
+        if not include_text:
             for slot in slots:
-                body=slot['text']
-                if body is None:
-                    extraction=self.one('SELECT extracted_artifact_id FROM extraction_receipts WHERE artifact_id=?',(slot['artifact_id'],))
-                    if extraction:
-                        try:
-                            _,path=self.object(extraction['extracted_artifact_id']);body=path.read_text()
-                        except CareerError as error:
-                            if include_text or error.code!='MATERIAL_CHANGED':raise
-                            issues.extend(error.issues)
-                    elif slot['name'] in ('resume','message','answers'):issues.append(issue('EXTRACTION_REQUIRED','Binary has no actual byte-bound extraction'))
-                if body is not None:documents.append(dict(slot=slot['name'],text=body))
-            issues.extend(contact_checks(documents,self.applicable_answers(case['id'])))
+                if slot['name'] not in ('resume','message','answers'):continue
+                try:artifact,path=self.object(slot['artifact_id'])
+                except CareerError as error:
+                    if error.code=='MATERIAL_CHANGED':continue
+                    raise
+                slot['text']=path.read_text() if artifact['media_type'] in ('text/markdown','text/plain') else None
+        documents=[]
+        for slot in slots:
+            if slot['name'] not in ('resume','message','answers'):continue
+            body=slot['text']
+            if body is None:
+                extraction=self.one('SELECT extracted_artifact_id FROM extraction_receipts WHERE artifact_id=?',(slot['artifact_id'],))
+                if extraction:
+                    try:
+                        _,path=self.object(extraction['extracted_artifact_id']);body=path.read_text()
+                    except CareerError as error:
+                        if include_text or error.code!='MATERIAL_CHANGED':raise
+                        issues.extend(error.issues)
+                elif slot['name'] in ('resume','message','answers'):issues.append(issue('EXTRACTION_REQUIRED','Binary has no actual byte-bound extraction'))
+            if body is not None:documents.append(dict(slot=slot['name'],text=body))
+        issues.extend(contact_checks(documents,self.applicable_answers(case['id'])))
         if json.loads(case['detail']).get('essential_policy')=='failed':
             issues.append(issue('ESSENTIAL_POLICY_FAILED','Confirmed essential policy prevents suitable-case credit'))
         unresolved=self.rows('SELECT a.id FROM activities a WHERE a.case_id=? AND a.kind="uncertain" AND NOT EXISTS(SELECT 1 FROM activities r WHERE r.resolves_activity_id=a.id) UNION SELECT a.id FROM packets p JOIN activities a ON a.packet_id=p.id WHERE p.person_id=? AND a.kind="uncertain" AND NOT EXISTS(SELECT 1 FROM activities r WHERE r.resolves_activity_id=a.id)',(packet['case_id'],packet['person_id']))

@@ -2,8 +2,8 @@
 
 ## 1.0.6 (candidate; not published)
 
-- Distinguish valid calendar periods from phone-shaped text while retaining explicit telephone-field, omission and current-number mismatch checks.
-- Recompute current contact findings without rewriting immutable old reviews or clearing independent numeric/factual blocks.
+- Distinguish valid calendar periods from phone-shaped text while retaining explicit telephone-field priority through wrappers/qualifiers, omission and current-number mismatch checks.
+- Recompute current contact findings on every readiness projection, including legacy reviews without a phone preference, without rewriting immutable reviews or clearing independent numeric/factual blocks.
 - Return per-slot Unicode locations for blocked binary disclosure, without copying omitted phone numbers into error messages. Original document bytes remain unchanged.
 
 ## 1.0.5
