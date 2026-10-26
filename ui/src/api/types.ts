@@ -70,6 +70,15 @@ export interface Action {
   label: string;
   requires_input: boolean;
 }
+export interface SelectedRoute {
+  kind?: string;
+  value?: string;
+  source_id?: string;
+  owner: "person" | "company" | "case";
+  qualified: boolean;
+  suppressed?: boolean;
+  issues?: Issue[];
+}
 export interface CaseSummary {
   id: string;
   company_id: string;
@@ -78,7 +87,8 @@ export interface CaseSummary {
   title: string;
   kind: "vacancy" | "project" | "speculative";
   tracks: { id: string; name: string; rationale: string }[];
-  route: "person" | "form" | "unknown";
+  route: "person" | "company" | "form" | "unknown";
+  selected_route?: SelectedRoute | null;
   contact: {
     id: string;
     name: string;
@@ -177,6 +187,7 @@ export interface VersionPage extends Snapshot {
   next_cursor: string | null;
 }
 export interface Selection {
+  selected_route?: SelectedRoute | null;
   reported_sent?: boolean | null;
   is_selected?: boolean;
   created_at?: string;
