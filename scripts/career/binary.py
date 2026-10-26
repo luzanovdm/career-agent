@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 import zipfile
 from .contracts import CareerError, require
 
-CONTACT_POLICY = 'career-agent.contact-disclosure/4'
+CONTACT_POLICY = 'career-agent.contact-disclosure/5'
 CONTACT_CODES = frozenset(('CONTACT_PREFERENCE_UNKNOWN','CONTACT_DISCLOSURE_BLOCKED','CONTACT_MISMATCH','PRIVATE_FLOOR_DISCLOSED'))
 
 
@@ -57,10 +57,32 @@ def calendar_period(text,start,end):
     # Field qualifiers and presentation wrappers cannot turn a disclosed phone
     # into a calendar period. Allow decorations only, not intervening prose.
     label=r'(?:\b(?:phone(?:\s+number)?|telephone|tel|mobile(?:\s+number)?|fax|contact|телефон(?:а)?|тел|мобильный|контакт)\.?|☎|📞)'
-    qualifier=r'(?:[ \t]*(?:\([^()\r\n]{1,40}\)|\[[^\[\]\r\n]{1,40}\]))?'
-    index=r'(?:[ \t]*#?[ \t]*\d+)?'
-    decorations=r"[\s:：(\[{\"'“‘«»”’]*"
-    if re.search(label+index+decorations+qualifier+index+decorations+r'$',prefix,re.IGNORECASE):return False
+    pairs={'(':')','[':']','{':'}'}
+    quotes={'"':'"',"'":"'",'“':'”','‘':'’','«':'»'}
+    decorations=set(':：#()[]{}"\'“”‘’«»*_`')
+    def field_tail(value):
+        # Every token consumes original prefix characters; the whole input is bounded
+        # above. Multiple/nested qualifiers compose without admitting bare prose.
+        cursor=0
+        while cursor<len(value):
+            char=value[cursor]
+            if char in pairs:
+                stack=[pairs[char]];end=cursor+1
+                while end<len(value) and stack:
+                    item=value[end]
+                    if item in pairs:stack.append(pairs[item])
+                    elif item in pairs.values():
+                        if item!=stack[-1]:break
+                        stack.pop()
+                    end+=1
+                if not stack:cursor=end;continue
+            elif char in quotes:
+                end=value.find(quotes[char],cursor+1)
+                if end>=0:cursor=end+1;continue
+            if char.isspace() or char.isdigit() or char in decorations:cursor+=1;continue
+            return False
+        return True
+    if any(field_tail(prefix[match.end():]) for match in re.finditer(label,prefix,re.IGNORECASE)):return False
     if re.fullmatch(r'\d{4}-\d{2}-\d{2}',value):
         try:date.fromisoformat(value);return True
         except ValueError:return False
