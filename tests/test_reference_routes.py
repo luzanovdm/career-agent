@@ -68,6 +68,17 @@ class SourceURLTests(unittest.TestCase):
             text=pattern.format(url=url)
             with self.subTest(text=text),self.assertRaises(CareerError):self.check_url(text,url=url)
 
+    def test_intraword_apostrophes_do_not_change_multilingual_wrapper_scope(self):
+        url='https://market.example/jobs/123'
+        phrases=("Applicant's profile",'Applicant’s profile','Here’s the listing','L’équipe publie','П’ять посилань','Hawai‘i source','Oʻzbek listing','Jose\u0301’s profile')
+        wrappers=(('(',').'),('“','”.'),('«','».'),('‘','’.'),('"','".'))
+        for phrase in phrases:
+            for opening,closing in wrappers:
+                text=opening+phrase+': '+url+closing
+                with self.subTest(text=text):self.assertEqual([],self.check_url(text,url=url)[0])
+                evil=opening+phrase+': '+url+closing[0]+'evil'+closing[1:]
+                with self.subTest(evil=evil),self.assertRaises(CareerError):self.check_url(evil,url=url)
+
 
 class CompanyMailboxTests(unittest.TestCase):
     def setUp(self):

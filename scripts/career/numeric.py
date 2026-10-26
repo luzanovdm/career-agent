@@ -221,11 +221,14 @@ def complete_url_boundary(text,start,end):
     if start and not text[start-1].isspace() and text[start-1] not in pairs:return False
     # Enclosing prose/Markdown wrappers may open before introductory words, not
     # just directly before the locator. Keep a bounded unmatched delimiter stack.
+    def word_part(char):return char.isalnum() or unicodedata.category(char).startswith('M')
     stack=[];prefix=text[:start]
     for index,char in enumerate(prefix):
+        if char in ("'",'‘','’') and index and index+1<len(prefix) and word_part(prefix[index-1]) and word_part(prefix[index+1]):
+            continue  # Intraword punctuation must not open or close a wrapper.
         if char in ('"',"'") and stack and stack[-1]==char:
             stack.pop()
-        elif char=="'" and index and prefix[index-1].isalnum():
+        elif char=="'" and index and word_part(prefix[index-1]):
             continue  # A prose apostrophe is not an opening quotation mark.
         elif char in pairs:
             if len(stack)>=64:return False
