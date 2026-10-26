@@ -518,6 +518,10 @@ class Snapshot:
         else:
             detail = json.loads(review['detail'])
             issues.extend(detail.get('issues',[]))
+            from .numeric import POLICY as NUMERIC_POLICY
+            audit=detail.get('numeric_audit');saved_policy=audit.get('policy') if isinstance(audit,dict) else None
+            if saved_policy!=NUMERIC_POLICY:
+                issues.append(dict(issue('REVIEW_STALE','Numeric review policy changed; review the exact saved materials under the current policy',version_id),reason='numeric_policy_changed',saved_policy=saved_policy,required_policy=NUMERIC_POLICY))
         for dependency in self.rows('SELECT * FROM dependencies WHERE version_id=?',(version_id,)):
             record = self.get(dependency['kind'],dependency['record_id'])
             current_version=json.loads(record['detail']).get('semantic_version',1) if dependency['kind']=='case' and dependency['purpose']=='eligibility' else record['version']
@@ -1815,6 +1819,7 @@ def projection_policy_identity():
     from .policy import contact_issues,answer_scope_matches
     from .binary import contact_checks
     from .editorial import assess,binding,bank,selected_hashes,POLICY
+    from .numeric import POLICY as NUMERIC_POLICY
     def signature(code):
         constants=[]
         for value in code.co_consts:
@@ -1823,7 +1828,7 @@ def projection_policy_identity():
             elif isinstance(value,(str,int,float,bool,type(None),tuple)):constants.append(value)
             else:constants.append(type(value).__name__)
         return dict(bytecode=code.co_code.hex(),constants=constants,names=code.co_names)
-    return digest([POLICY]+[signature(fn.__code__) for fn in (assess,binding,bank,selected_hashes,Snapshot.selection,Snapshot.case_summary,Snapshot.refresh_case_projection,Snapshot.eligibility,Snapshot.readable_target,Snapshot.public_answer,Snapshot.applicable_answers,Snapshot.contact,contact_issues,answer_scope_matches,contact_checks)])
+    return digest([POLICY,NUMERIC_POLICY]+[signature(fn.__code__) for fn in (assess,binding,bank,selected_hashes,Snapshot.selection,Snapshot.case_summary,Snapshot.refresh_case_projection,Snapshot.eligibility,Snapshot.readable_target,Snapshot.public_answer,Snapshot.applicable_answers,Snapshot.contact,contact_issues,answer_scope_matches,contact_checks)])
 
 
 DELIVERY_INDEXES = {

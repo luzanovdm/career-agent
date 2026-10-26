@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 os.environ['CAREER_AGENT_DEVELOPMENT']='1'
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts'))
 from career.contracts import CareerError
@@ -196,6 +197,27 @@ class NumericOccurrenceTests(unittest.TestCase):
 class NumericRepositoryTests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory(prefix='career-numeric-fictional-');self.addCleanup(self.temp.cleanup);self.fx=Fixture(self.temp.name).seed()
+
+    def test_policy_change_blocks_all_readiness_without_rewriting_old_review(self):
+        f=self.fx;documents=[dict(slot=s['name'],text=s['text']) for s in f.tasks.query('selection',record_id='packet_one')['slots']]
+        review=dict(findings='Fictional earlier-policy comparison.',limitations='Structural fixture only.',tone_findings='Direct fixture.',claim_spans=[dict(claim_id='claim_one',text='Improved processing by 25%.')],coverage=[dict(claim_id='claim_one',disposition='included')])
+        with patch('career.numeric.POLICY','career-agent.numeric-occurrences/3'):
+            f.command('packet.save',packet_id='packet_one',documents=documents,used_claim_ids=['claim_one'],review=review)
+            f.command('batch.save',id='batch_policy',task='packets',requested_count=1,count_unit='cases',track_ids=['track_one'],criterion='One prepared fictional packet',selected_ids=['case_one'],required_outputs=[])
+            old=f.tasks.query('selection',record_id='packet_one');self.assertTrue(old['assessment']['prepared'])
+            self.assertEqual(1,f.tasks.query('board')['counts']['columns']['ready']);self.assertTrue(f.tasks.query('assess',record_id='batch_policy')['task_complete'])
+        with f.tasks.repository.open() as snap:
+            revision=snap.revision;protected={table:snap.rows('SELECT * FROM '+table+' ORDER BY rowid') for table in ('reviews','packet_versions','slots','activities','case_selections')}
+        selected=f.tasks.query('selection',record_id='packet_one');self.assertFalse(selected['assessment']['prepared']);self.assertFalse(selected['assessment']['factual_pass'])
+        issue=next(i for i in selected['assessment']['issues'] if i.get('reason')=='numeric_policy_changed');self.assertEqual('REVIEW_STALE',issue['code']);self.assertEqual('career-agent.numeric-occurrences/3',issue['saved_policy'])
+        self.assertEqual(old['version_id'],selected['version_id']);self.assertEqual(old['slots'],selected['slots']);self.assertEqual(old['review'],selected['review'])
+        self.assertEqual(0,f.tasks.query('board')['counts']['columns']['ready']);self.assertFalse(f.tasks.query('cases')['items'][0]['prepared']);self.assertFalse(f.tasks.query('case',record_id='case_one')['case']['prepared'])
+        assessed=f.tasks.query('assess',record_id='batch_policy');self.assertFalse(assessed['task_complete']);self.assertEqual(0,assessed['prepared'])
+        handoff=f.tasks.query('handoff-check',input=dict(packet_id='packet_one',version_id=old['version_id'],documents=[d for d in documents if d['slot'] in ('resume','message','answers')],recipient=dict(kind='profile',value='https://northstar.example/team/morgan')))
+        self.assertFalse(handoff['ready']);self.assertTrue(any(i.get('reason')=='numeric_policy_changed' for i in handoff['issues']))
+        with f.tasks.repository.open() as snap:
+            self.assertEqual(revision,snap.revision)
+            for table,rows in protected.items():self.assertEqual(rows,snap.rows('SELECT * FROM '+table+' ORDER BY rowid'))
 
     def test_facade_source_span_for_previous_company_preserves_bytes_primary_and_history(self):
         f=self.fx;wording='At 7furlong I documented the handover.';start=wording.index('7furlong')
