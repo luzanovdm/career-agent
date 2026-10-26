@@ -6,7 +6,7 @@ import unicodedata
 from urllib.parse import urlsplit
 from .contracts import require, issue
 
-POLICY = 'career-agent.numeric-occurrences/5'
+POLICY = 'career-agent.numeric-occurrences/6'
 EXTERNAL = frozenset(('resume', 'message', 'answers'))
 NUMBER = re.compile(r'(?<!\d)[+\-−]?\d+(?:[.,]\d+)*')
 IDENTIFIER = re.compile(r'(?<!\w)[^\W_]+(?:[._-][^\W_]+)*(?!\w)')
@@ -215,6 +215,23 @@ def external_measurement_marker(text,start,end):
     return unit is not None and not unit.startswith('opaque:')
 
 
+def complete_url_boundary(text,start,end):
+    """Only whole locators with matched wrappers and a prose boundary may be exempted."""
+    pairs={'(':')','[':']','{':'}','<':'>','"':'"',"'":"'",'“':'”','‘':'’','«':'»'}
+    if start and not text[start-1].isspace() and text[start-1] not in pairs:return False
+    expected=[];left=start-1
+    while left>=0 and text[left] in pairs:
+        expected.append(pairs[text[left]]);left-=1
+    right=end
+    while right<len(text) and not text[right].isspace():
+        char=text[right]
+        if char in pairs.values():
+            if not expected or expected.pop(0)!=char:return False
+        elif char not in '.,;!?:':return False
+        right+=1
+    return True
+
+
 def explicit_entities(documents, review, references, sources, entities):
     """Optional agent disambiguation of exact identifiers; quantities cannot be relabeled wholesale."""
     spans = review.get('entity_spans', [])
@@ -236,11 +253,7 @@ def explicit_entities(documents, review, references, sources, entities):
             require(source and source['readable'] and source['excerpt'].strip() and source['locator']==value,
                     'ENTITY_REFERENCE_UNVERIFIED','URL span needs its exact scoped readable source locator')
             # A partial URL cannot hide a path/query continuation outside the declared span.
-            require((start==0 or text[start-1] in ' \t\r\n([<{\"\'') and
-                    (end==len(text) or text[end] in ' \t\r\n)]}>.,;!?:%‰×'),
-                    'INVALID_REVIEW','URL span must cover the complete literal locator')
-            if end<len(text) and text[end] in '.,;!?:':
-                require(end+1==len(text) or text[end+1].isspace() or text[end+1] in ')]}>','INVALID_REVIEW','URL span cannot omit a path or query continuation')
+            require(complete_url_boundary(text,start,end),'INVALID_REVIEW','URL span must cover the complete literal locator without a hidden continuation')
             require(not external_measurement_marker(text,start,end),'INVALID_REVIEW','An external measurement marker cannot be hidden by a URL span')
             result.append(dict(slot=span['slot'],start=start,end=end,url=True,reference=dict(text=value,kind='source',record_id=source['id'],record_version=source['version'],reference_type='url')))
             continue
