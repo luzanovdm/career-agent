@@ -8,6 +8,9 @@ import xml.etree.ElementTree as ET
 import zipfile
 from .contracts import CareerError, require
 
+CONTACT_POLICY = 'career-agent.contact-disclosure/2'
+CONTACT_CODES = frozenset(('CONTACT_PREFERENCE_UNKNOWN','CONTACT_DISCLOSURE_BLOCKED','CONTACT_MISMATCH','PRIVATE_FLOOR_DISCLOSED'))
+
 
 def extract_docx(content):
     with zipfile.ZipFile(io.BytesIO(content)) as archive:
@@ -45,14 +48,37 @@ def check_conversion(source,extracted):
     require(tokens(source)==tokens(extracted),'BINARY_TEXT_MISMATCH','Actual binary text differs from selected content, including extra headers or removed contact fields')
 
 
+def calendar_period(text,start,end):
+    """Calendar syntax is not a phone; an explicit telephone field takes priority."""
+    from datetime import date
+    value=text[start:end]
+    prefix=text[max(0,start-80):start]
+    if re.search(r'(?:\b(?:phone(?:\s+number)?|telephone|tel|mobile(?:\s+number)?|fax|contact|телефон(?:а)?|тел|мобильный|контакт)\.?|☎|📞)\s*[:：]?\s*$',prefix,re.IGNORECASE):return False
+    if re.fullmatch(r'\d{4}-\d{2}-\d{2}',value):
+        try:date.fromisoformat(value);return True
+        except ValueError:return False
+    years=re.fullmatch(r'(\d{4}) *- *(\d{4})',value)
+    return bool(years and 1900<=int(years[1])<=int(years[2])<=2099)
+
+
+def phone_occurrences(documents):
+    """Per-slot offsets avoid cross-document matches and never emit private numbers."""
+    result=[]
+    for document in documents:
+        if document['slot'] not in ('resume','message','answers'):continue
+        for match in re.finditer(r'(?<!\w)\+?\d[\d ()-]{6,}\d(?!\w)',document['text']):
+            if not calendar_period(document['text'],match.start(),match.end()):
+                result.append(dict(slot=document['slot'],start=match.start(),end=match.end(),offset_unit='unicode_code_points'))
+    return result
+
+
 def contact_checks(documents,answers):
     from .contracts import issue
     external='\n'.join(d['text'] for d in documents if d['slot'] in ('resume','message','answers'))
     issues=[]
-    phones=re.findall(r'(?<!\w)\+?\d[\d ()-]{6,}\d(?!\w)',external)
-    phones=[p for p in phones if not re.fullmatch(r'\d{4}-\d{2}-\d{2}',p)]
+    phones=phone_occurrences(documents)
     if phones and not any(a['meaning']=='contact.phone.preference' and a['disposition']!='pending' for a in answers):
-        issues.append(issue('CONTACT_PREFERENCE_UNKNOWN','External phone has no current explicit application choice'))
+        issues.extend(dict(issue('CONTACT_PREFERENCE_UNKNOWN','External phone has no current explicit application choice'),**phone) for phone in phones)
     for answer in answers:
         value=answer['value']
         if isinstance(value,str):
@@ -62,11 +88,12 @@ def contact_checks(documents,answers):
             disposition=value.get('disposition') if isinstance(value,dict) else answer['disposition']
             selected=value.get('value') if isinstance(value,dict) else value
             if disposition in ('omit','unknown','pending') and phones:
-                issues.append(issue('CONTACT_DISCLOSURE_BLOCKED','Phone appears despite omitted or unresolved current application choice',answer['id']))
+                issues.extend(dict(issue('CONTACT_DISCLOSURE_BLOCKED','Phone appears despite omitted or unresolved current application choice',answer['id']),**phone) for phone in phones)
             if disposition=='use':
                 expected=re.sub(r'\D','',str(selected))
                 for phone in phones:
-                    if re.sub(r'\D','',phone)!=expected:issues.append(issue('CONTACT_MISMATCH','External phone differs from current explicit choice',answer['id']))
+                    body=next(d['text'] for d in documents if d['slot']==phone['slot'])
+                    if re.sub(r'\D','',body[phone['start']:phone['end']])!=expected:issues.append(dict(issue('CONTACT_MISMATCH','External phone differs from current explicit choice',answer['id']),**phone))
         if answer['meaning']=='compensation.floor' and answer['disposition']=='answered' and str(value) in external:
             issues.append(issue('PRIVATE_FLOOR_DISCLOSED','Private compensation floor appears in external material',answer['id']))
     return issues

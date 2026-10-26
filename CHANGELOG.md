@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.6 (candidate; not published)
+
+- Distinguish valid calendar periods from phone-shaped text while retaining explicit telephone-field, omission and current-number mismatch checks.
+- Recompute current contact findings without rewriting immutable old reviews or clearing independent numeric/factual blocks.
+- Return per-slot Unicode locations for blocked binary disclosure, without copying omitted phone numbers into error messages. Original document bytes remain unchanged.
+
 ## 1.0.5
 
 - Recognize only exact source-bound HTTP(S) URL spans as references; numeric quantities outside the URL still require independent evidence.

@@ -6,7 +6,7 @@ import re
 
 FORMAT = 'career-agent.workspace/1'
 PROTOCOL = 'career-agent.local/1'
-VERSION = '1.0.5'
+VERSION = '1.0.6'
 MAX_ITEMS = 100
 
 
