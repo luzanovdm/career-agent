@@ -6,7 +6,7 @@ import re
 
 FORMAT = 'career-agent.workspace/1'
 PROTOCOL = 'career-agent.local/1'
-VERSION = '1.0.4'
+VERSION = '1.0.5'
 MAX_ITEMS = 100
 
 
@@ -81,9 +81,9 @@ SCHEMAS = {
     'track.save': (['name', 'positioning', 'selected', 'language', 'policies'], ['id', 'claim_ids']),
     'answer.save': (['meaning', 'scope', 'units', 'disposition', 'value', 'evidence'], ['id', 'valid_from', 'valid_until','response_state']),
     'company.capture': (['name'], ['id', 'domain', 'source_ids']),
-    'contact.suppress': (['person_id','kind','value','reason','evidence'], []),
+    'contact.suppress': (['kind','value','reason','evidence'], ['person_id','company_id']),
     'contact.capture': (['name', 'company_id', 'affiliation', 'relevance', 'sources', 'route'], ['id', 'relationship', 'valid_until','track_rationales']),
-    'case.capture': (['company_id', 'title', 'kind', 'route', 'tracks', 'source_ids'], ['id', 'requisition', 'canonical_url', 'person_id', 'fallback_reason', 'essential_policy','essential_unknowns']),
+    'case.capture': (['company_id', 'title', 'kind', 'route', 'tracks', 'source_ids'], ['id', 'requisition', 'canonical_url', 'person_id', 'company_route', 'fallback_reason', 'essential_policy','essential_unknowns']),
     'case.note': (['case_id', 'text'], []),
     'case.close': (['case_id', 'reason', 'evidence'], []),
     'case.reopen': (['case_id', 'reason'], []),

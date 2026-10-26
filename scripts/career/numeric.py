@@ -6,7 +6,7 @@ import unicodedata
 from urllib.parse import urlsplit
 from .contracts import require, issue
 
-POLICY = 'career-agent.numeric-occurrences/4'
+POLICY = 'career-agent.numeric-occurrences/5'
 EXTERNAL = frozenset(('resume', 'message', 'answers'))
 NUMBER = re.compile(r'(?<!\d)[+\-−]?\d+(?:[.,]\d+)*')
 IDENTIFIER = re.compile(r'(?<!\w)[^\W_]+(?:[._-][^\W_]+)*(?!\w)')
@@ -225,6 +225,25 @@ def explicit_entities(documents, review, references, sources, entities):
         start,end=span['start'],span['end'];value=span['text'];text=by_slot.get(span['slot'])
         require(type(start) is int and type(end) is int and isinstance(value,str) and text is not None and 0<=start<end<=len(text) and text[start:end]==value,
                 'INVALID_REVIEW', 'Entity span must bind exact saved document text')
+        if value.startswith(('http://','https://')):
+            source=by_source.get(span.get('source_id'))
+            try:
+                parsed=urlsplit(value);port=parsed.port
+                valid=bool(parsed.hostname and not parsed.username and not parsed.password)
+            except ValueError:valid=False
+            require(valid and len(value)<=4096 and not re.search(r'[\s<>"\\\\]|%(?![0-9a-fA-F]{2})',value),
+                    'INVALID_REVIEW','URL reference requires one complete ordinary HTTP(S) locator')
+            require(source and source['readable'] and source['excerpt'].strip() and source['locator']==value,
+                    'ENTITY_REFERENCE_UNVERIFIED','URL span needs its exact scoped readable source locator')
+            # A partial URL cannot hide a path/query continuation outside the declared span.
+            require((start==0 or text[start-1] in ' \t\r\n([<{\"\'') and
+                    (end==len(text) or text[end] in ' \t\r\n)]}>.,;!?:%‰×'),
+                    'INVALID_REVIEW','URL span must cover the complete literal locator')
+            if end<len(text) and text[end] in '.,;!?:':
+                require(end+1==len(text) or text[end+1].isspace() or text[end+1] in ')]}>','INVALID_REVIEW','URL span cannot omit a path or query continuation')
+            require(not external_measurement_marker(text,start,end),'INVALID_REVIEW','An external measurement marker cannot be hidden by a URL span')
+            result.append(dict(slot=span['slot'],start=start,end=end,url=True,reference=dict(text=value,kind='source',record_id=source['id'],record_version=source['version'],reference_type='url')))
+            continue
         require(IDENTIFIER.fullmatch(value) and any(c.isalpha() for c in value) and any(c.isdigit() for c in value), 'INVALID_REVIEW', 'Entity span must cover one complete alphanumeric identifier')
         require(any(token.start()==start and token.end()==end for token in candidates(text)), 'INVALID_REVIEW', 'Entity span cannot hide part of a larger token')
         if 'source_id' in span:
@@ -257,6 +276,7 @@ def numeric_review(documents, claims, review, answers=(), entities=(), sources=(
         for entry in indexed.get(span['slot'],[]):
             if span['start']<=entry['start'] and entry['end']<=span['end']:
                 entry['explicit_reference']=span['reference']
+                entry['url_reference']=span.get('url',False)
     for span in review['claim_spans']:
         claim=by_claim[span['claim_id']];wording=span['text']
         budgets=[]
@@ -274,7 +294,7 @@ def numeric_review(documents, claims, review, answers=(), entities=(), sources=(
         for entry in entries:
             if 'explicit_reference' not in entry:continue
             reference=entry.pop('explicit_reference')
-            require(entry['unit'] is None or (slot,entry['start'],entry['end']) in supported,
+            require(entry.pop('url_reference',False) or entry['unit'] is None or (slot,entry['start'],entry['end']) in supported,
                     'ENTITY_REFERENCE_UNVERIFIED','A unit-shaped name needs independently grounded claim support at this exact occurrence')
             entry.update(role='reference',unit=None,reference=reference)
     # Contact values are exact literal occurrences. An unrelated equal digit does not reuse a phone/email.
