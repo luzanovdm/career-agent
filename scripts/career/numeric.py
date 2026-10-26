@@ -6,7 +6,7 @@ import unicodedata
 from urllib.parse import urlsplit
 from .contracts import require, issue
 
-POLICY = 'career-agent.numeric-occurrences/3'
+POLICY = 'career-agent.numeric-occurrences/4'
 EXTERNAL = frozenset(('resume', 'message', 'answers'))
 NUMBER = re.compile(r'(?<!\d)[+\-−]?\d+(?:[.,]\d+)*')
 IDENTIFIER = re.compile(r'(?<!\w)[^\W_]+(?:[._-][^\W_]+)*(?!\w)')
@@ -201,6 +201,20 @@ def number_tokens(text):
 def _key(entry): return entry['text'], entry['unit']
 
 
+def external_measurement_marker(text,start,end):
+    """Inspect outside the complete name, rather than after only its numeric prefix."""
+    before=text[max(0,start-16):start].rstrip();after=text[end:end+80].lstrip()
+    for _ in range(4):
+        if before and before[-1] in UNIT_OPENERS:before=before[:-1].rstrip()
+        if after and (after[0] in UNIT_OPENERS or after[0] in ')]}»”’'):after=after[1:].lstrip()
+    if before.endswith(('%','‰','×')) or after.startswith(('%','‰','×')):return True
+    if before and unicodedata.category(before[-1])=='Sc' or after and unicodedata.category(after[0])=='Sc':return True
+    if re.search(r'(?<!\w)[x×]\s*$',before) or re.match(r'[x×](?!\w)',after):return True
+    outer=before+' 0 '+after;number=NUMBER.match(outer,len(before)+1)
+    unit=quantity_unit(outer,number)
+    return unit is not None and not unit.startswith('opaque:')
+
+
 def explicit_entities(documents, review, references, sources, entities):
     """Optional agent disambiguation of exact identifiers; quantities cannot be relabeled wholesale."""
     spans = review.get('entity_spans', [])
@@ -218,15 +232,17 @@ def explicit_entities(documents, review, references, sources, entities):
             require(source and source['readable'] and source['excerpt'].strip() and any(match.group().casefold()==value.casefold() for match in candidates(source['excerpt'])),
                     'ENTITY_REFERENCE_UNVERIFIED', 'Entity span needs its scoped readable literal source')
             ref=dict(text=value,kind='source',record_id=source['id'],record_version=source['version'])
-            require(not quantity_shaped(value) and named_source_entity(source,value), 'ENTITY_REFERENCE_UNVERIFIED', 'Source does not prove a non-quantitative named entity')
+            require(named_source_entity(source,value), 'ENTITY_REFERENCE_UNVERIFIED', 'Source does not establish this named entity')
         else:
             entity=by_entity.get(span['company_id'])
             require(entity and any(match.group().casefold()==value.casefold() for field in (entity['name'],entity.get('domain') or '') for match in candidates(field)), 'ENTITY_REFERENCE_UNVERIFIED', 'Entity span needs an exact canonical company identifier')
             ref=dict(text=value,kind='company',record_id=entity['id'],record_version=entity['version'])
+        require(not external_measurement_marker(text,start,end), 'INVALID_REVIEW', 'An external measurement marker cannot be hidden by an entity span')
         for number in NUMBER.finditer(text):
-            if start<=number.start() and number.end()<=end and quantity_unit(text,number):
-                local=list(NUMBER.finditer(value))
-                require('company_id' in span and all(quantity_unit(value,item) for item in local), 'INVALID_REVIEW', 'An external measurement marker cannot be hidden by an entity span')
+            if number.start()<end and start<number.end():
+                require(start<=number.start() and number.end()<=end, 'INVALID_REVIEW', 'An entity span cannot hide an external numeric sign')
+                local=NUMBER.match(value,number.start()-start)
+                require(local and quantity_unit(text,number)==quantity_unit(value,local), 'INVALID_REVIEW', 'An external measurement marker cannot be hidden by an entity span')
         result.append(dict(slot=span['slot'],start=start,end=end,reference=ref))
     return result
 
@@ -259,7 +275,7 @@ def numeric_review(documents, claims, review, answers=(), entities=(), sources=(
             if 'explicit_reference' not in entry:continue
             reference=entry.pop('explicit_reference')
             require(entry['unit'] is None or (slot,entry['start'],entry['end']) in supported,
-                    'ENTITY_REFERENCE_UNVERIFIED','A quantitative canonical name needs independently grounded claim support at this exact occurrence')
+                    'ENTITY_REFERENCE_UNVERIFIED','A unit-shaped name needs independently grounded claim support at this exact occurrence')
             entry.update(role='reference',unit=None,reference=reference)
     # Contact values are exact literal occurrences. An unrelated equal digit does not reuse a phone/email.
     for answer in answers:
