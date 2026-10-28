@@ -188,6 +188,36 @@ class NumericOccurrenceTests(unittest.TestCase):
             with self.subTest(text=text):self.assertTrue(all(row['unit'] is None for row in occurrences(text)))
         self.assertFalse(self.check('P2P.org Icons8 D3 n8n B2B.')[0])
 
+    def test_employment_range_does_not_absorb_the_next_resume_bullet(self):
+        wording='Employment 2025 - 2026'
+        claim=dict(id='claim_employment',assertion=wording,meaning=wording)
+        review=dict(claim_spans=[dict(claim_id=claim['id'],text=wording)])
+        for newline in ('\n','\r\n','\u2028','\u2029'):
+            for marker in ('-','–','—','*','•','‣','◦','1.'):
+                text=wording+newline+marker+' Built interfaces.'
+                with self.subTest(newline=newline,marker=marker):
+                    issues,audit=numeric_review([dict(slot='resume',text=text)],[claim],review)
+                    self.assertTrue(all(row['unit'] is None for row in audit['occurrences']))
+                    self.assertEqual(['1'] if marker=='1.' else [],[row['token'] for row in issues])
+
+    def test_real_wrapped_units_keep_identity_and_unsupported_quantities_stay_blocked(self):
+        for unit in ('KB','USD','%','ms','quux'):
+            wording='Measured 400 '+unit+'.'
+            claim=dict(id='claim_wrapped',assertion=wording,meaning=wording)
+            for rendered_unit in (unit,'otherunit'):
+                text='Measured 400\n'+rendered_unit+'.'
+                review=dict(claim_spans=[dict(claim_id=claim['id'],text=text)])
+                with self.subTest(unit=unit,rendered_unit=rendered_unit):
+                    issues,_=numeric_review([dict(slot='resume',text=text)],[claim],review)
+                    self.assertEqual(rendered_unit!=unit,bool(issues))
+        for boundary in ('\n- ','\n* ','\n• ','\n\n','\n. ',';\n','!\n','?\n'):
+            with self.subTest(boundary=boundary):
+                self.assertIsNone(occurrences('2026'+boundary+'Built interfaces.')[0]['unit'])
+        issues,_=numeric_review([dict(slot='resume',text='Employment 2025 - 2026\n- Built 999 interfaces.')],
+            [dict(id='claim_employment',assertion='Employment 2025 - 2026',meaning='Employment 2025 - 2026')],
+            dict(claim_spans=[dict(claim_id='claim_employment',text='Employment 2025 - 2026')]))
+        self.assertEqual(['999'],[row['token'] for row in issues])
+
     def test_scalar_answer_authority_is_bound_to_an_exact_field_span(self):
         answer=dict(id='answer_pay',meaning='compensation.external.salary',disposition='answered',value='5000',units='{"currency":"USD"}')
         text='Expected 5000 USD. Managed 5000 people.'

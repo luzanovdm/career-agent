@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.8
+
+- Preserve numeric evidence boundaries across lists, paragraphs, distinct coverage spans and separate dated records; retain genuine wrapped known and opaque units.
+- Normalize supported English/Russian calendar months without losing month/year precision. Distinguish calendar-year annotations from elapsed durations.
+- Parse bounded ratios, duration clauses and explicit point scales while retaining denominators, original values and independent unsupported-number checks.
+- Advance numeric audit policy to 8, requiring re-review without rewriting existing documents, claims, coverage records or historical transmissions. Keep workspace format, UI, skill guidance and dependencies unchanged.
+
 ## 1.0.6
 
 - Distinguish valid calendar periods from phone-shaped text while retaining explicit telephone-field priority through wrappers/qualifiers, omission and current-number mismatch checks.

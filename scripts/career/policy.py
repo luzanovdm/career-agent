@@ -110,7 +110,7 @@ def coverage_issues(documents,claims,review,entities=(),sources=()):
         if claim is None or not actual:
             issues.append(issue('COVERAGE_SPAN_MISSING','Included/condensed achievement must be a used claim bound to actual applicable resume wording',entry['claim_id']))
             continue
-        rendered=' '.join(actual)
+        rendered='\n\n'.join(actual)
         original_numbers={entry['text'] for entry in occurrences(claim['assertion'],references) if entry['role']=='quantity'}
         present_numbers={entry['text'] for entry in occurrences(rendered,references) if entry['role']=='quantity'}
         for number in original_numbers-present_numbers:

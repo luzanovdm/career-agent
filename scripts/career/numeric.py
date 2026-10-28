@@ -6,7 +6,7 @@ import unicodedata
 from urllib.parse import urlsplit
 from .contracts import require, issue
 
-POLICY = 'career-agent.numeric-occurrences/6'
+POLICY = 'career-agent.numeric-occurrences/8'
 EXTERNAL = frozenset(('resume', 'message', 'answers'))
 NUMBER = re.compile(r'(?<!\d)[+\-−]?\d+(?:[.,]\d+)*')
 IDENTIFIER = re.compile(r'(?<!\w)[^\W_]+(?:[._-][^\W_]+)*(?!\w)')
@@ -91,25 +91,83 @@ def _enclosing_identifier(text,match):
     return None
 
 
+
+# Calendar aliases are interpreted only next to a year, never as unit exemptions.
+MONTH_NAMES = (
+    r'jan(?:uary)?|январ[ьяе]', r'feb(?:ruary)?|феврал[ьяе]',
+    r'mar(?:ch)?|март[ае]?', r'apr(?:il)?|апрел[ьяе]', r'may|ма[йяе]',
+    r'jun(?:e)?|июн[ьяе]', r'jul(?:y)?|июл[ьяе]', r'aug(?:ust)?|август[ае]?',
+    r'sep(?:t(?:ember)?)?|сентябр[ьяе]', r'oct(?:ober)?|октябр[ьяе]',
+    r'nov(?:ember)?|ноябр[ьяе]', r'dec(?:ember)?|декабр[ьяе]',
+)
+MONTH_PATTERN = '(?:'+'|'.join(MONTH_NAMES)+')'
+YEAR_PATTERN = r'(?:1[0-9]{3}|2[0-9]{3})'
+
+
+def narrative_quantity_tail(following):
+    """Recognize bounded numeric clauses; isolated unknown words remain measurements."""
+    if re.match(r'\s+out\s+of\s+\d+(?:[.,]\d+)?(?![\w.,])',following,re.IGNORECASE):return True
+    duration=re.match(r'\s+over\s+(?:approximately\s+)?\d+(?:[.,]\d+)?(?:\s*[-–—]\s*\d+(?:[.,]\d+)?)?\s+([^\W\d_]+)(?!\w)',following,re.IGNORECASE)
+    return bool(duration and normalize_unit(duration.group(1)).startswith('time:'))
+
+
+def calendar_unit(text,match,following):
+    """Keep month precision through translation; explicit measurement tails still win."""
+    if not re.fullmatch(YEAR_PATTERN,match.group()):return None
+    before=text[max(0,match.start()-40):match.start()]
+    tail=following
+    if re.match(r'\s*[-–—]\s*(?:'+MONTH_PATTERN+r'\.?\s*)?'+YEAR_PATTERN+r'(?!\d)',tail,re.IGNORECASE):tail=''
+    elif re.match(r'\s*[.,;:!?]',tail):tail=''
+    since=bool(re.search(r'(?<!\w)(?:since|с)\s*$',before,re.IGNORECASE))
+    month=next((index for index,pattern in enumerate(MONTH_NAMES,1)
+        if re.search(r'(?<!\w)(?:'+pattern+r')\.?\s*$',before,re.IGNORECASE)),None)
+    if not month and not since:return None
+    if since and re.match(r'\s*год[ау]?(?!\w)',tail,re.IGNORECASE):return 'calendar:year'
+    unit=suffix_unit(tail)
+    if unit is not None:return unit
+    return 'calendar:month:'+str(month) if month else 'calendar:year'
+
+
+def dated_record_boundary(text,match,following):
+    """A dated title starts a separate record; bare wrapped opaque units do not."""
+    if not re.fullmatch(YEAR_PATTERN,match.group()):return False
+    line=text[max(text.rfind('\n',0,match.start()),text.rfind('\r',0,match.start()))+1:match.end()]
+    if not re.search(YEAR_PATTERN+r'\s*[-–—]\s*'+YEAR_PATTERN+r'$',line):return False
+    record=re.match(r'[^\S\r\n]*(?:\r\n|[\r\n\u2028\u2029])([^\r\n]{1,60}?[·|]\s*'+YEAR_PATTERN+r')(?=[^\S\r\n]*(?:[.;][^\S\r\n]*)?(?:[\r\n\u2028\u2029]|$))',following)
+    if not record:return False
+    unit=suffix_unit(record.group(1))
+    return bool(unit and unit.startswith('opaque:'))
+
+
 def quantity_unit(text, match, token=None):
     token=token or _enclosing_identifier(text,match)
     following=text[match.end():match.end()+80];before=text[max(0,match.start()-16):match.start()]
+    # Wrapped units may continue, but a new list item or paragraph ends the quantity.
+    following=re.split(r'(?:\r\n|[\r\n\u2028\u2029])[^\S\r\n\u2028\u2029]*(?=[\r\n\u2028\u2029]|[-–—*•‣◦]|[.!?;])',following,maxsplit=1)[0]
     # Symbols and multipliers are explicit quantity markers, including unknown currencies.
     if following.lstrip().startswith(('%','‰')):return normalize_unit(following.lstrip()[0])
     if re.match(r'\s*[x×](?!\w)',following) or re.search(r'(?<!\w)[x×]$',before):return 'multiplier'
     if before.rstrip() and unicodedata.category(before.rstrip()[-1])=='Sc':return normalize_unit(before.rstrip()[-1])
     prefix=re.search(r'([A-Z]{3})\s*$',before)
     if prefix and (prefix.start()==0 or not before[prefix.start()-1].isalnum()):return normalize_unit(prefix.group(1))
+    # An explicit point scale and its ratio denominator retain the same identity.
+    if re.match(r'-points?\b(?:\s+[^\W\d_]+){0,4}\s+scale\b',following,re.IGNORECASE):return 'scale:point'
     # Any number-leading alphanumeric token is a quantity/ambiguous measure, even an unseen unit.
     if token and token.start()==match.start():
         suffix=_unit_token(text[match.end():token.end()].lstrip('._-'))
         if suffix:return normalize_unit(suffix)
+    calendar=calendar_unit(text,match,following)
+    if calendar:return None if calendar=='calendar:year' else calendar
     # Lowercase unit-before-value notation is conservative ambiguity, not an entity exception.
     if token and token.end()==match.end():
         prefix=text[token.start():match.start()]
         if prefix.isalpha() and (prefix.islower() or len(prefix)==2 and prefix.isupper()):return normalize_unit(prefix)
     if token:return None
-    return suffix_unit(following)
+    if dated_record_boundary(text,match,following):return None
+    narrative=narrative_quantity_tail(following)
+    unit=None if narrative else suffix_unit(following)
+    if unit is None and re.search(r'\bout\s+of\s*$',before,re.IGNORECASE):return 'scale:point'
+    return unit
 
 
 def quantity_shaped(value):
